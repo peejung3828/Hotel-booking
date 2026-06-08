@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ชำระเงิน</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen pb-10">
+
+  <!-- Header -->
+  <div class="bg-blue-600 text-white px-4 py-4 flex items-center gap-3 sticky top-0 z-10 shadow">
+    <span class="text-2xl">💳</span>
+    <div class="font-bold text-lg">ชำระเงิน</div>
+  </div>
+
+  <div class="max-w-lg mx-auto px-4 pt-6">
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-16">
+      <div class="text-4xl mb-3">⏳</div>
+      <div class="text-gray-500">กำลังโหลด...</div>
+    </div>
+
+    <!-- Error -->
+    <div id="errorState" class="hidden text-center py-16">
+      <div class="text-4xl mb-3">❌</div>
+      <div class="text-gray-700 font-medium" id="errorMsg">เกิดข้อผิดพลาด</div>
+      <a href="/liff/" class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-xl text-sm">กลับหน้าหลัก</a>
+    </div>
+
+    <!-- Success -->
+    <div id="successState" class="hidden text-center py-10 px-4">
+      <div class="text-6xl mb-4">✅</div>
+      <div class="text-xl font-bold text-green-700 mb-2">ส่งสลิปสำเร็จ!</div>
+      <div class="text-gray-600 text-sm mb-6">ทีมงานจะตรวจสอบและยืนยันการจองของคุณภายใน 30 นาที</div>
+      <a id="confirmLink" href="/liff/confirm" class="inline-block bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold">
+        ดูสถานะการจอง
+      </a>
+    </div>
+
+    <!-- Payment form -->
+    <div id="paymentForm" class="hidden space-y-4">
+
+      <!-- Booking summary -->
+      <div class="bg-white rounded-2xl shadow p-5 space-y-2">
+        <div class="text-xs text-gray-400 uppercase font-semibold mb-2">สรุปการจอง</div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">รหัส</span>
+          <span class="font-bold text-blue-700" id="pRef"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">เช็คอิน → เช็คเอาต์</span>
+          <span class="font-semibold" id="pDates"></span>
+        </div>
+        <hr class="border-gray-100"/>
+        <div class="flex justify-between">
+          <span class="font-bold text-gray-800">ยอดที่ต้องชำระ</span>
+          <span class="font-bold text-blue-600 text-xl" id="pTotal"></span>
+        </div>
+      </div>
+
+      <!-- Bank transfer details -->
+      <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+        <div class="text-sm font-bold text-blue-800 mb-3">🏦 ข้อมูลบัญชีธนาคาร</div>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-blue-700">ธนาคาร</span>
+            <span class="font-semibold text-blue-900">กสิกรไทย (KBank)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-blue-700">เลขบัญชี</span>
+            <button onclick="copyText('000-0-00000-0')"
+              class="font-bold text-blue-900 underline decoration-dotted">000-0-00000-0</button>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-blue-700">ชื่อบัญชี</span>
+            <span class="font-semibold text-blue-900">บริษัท โรงแรม จำกัด</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-blue-700">จำนวนเงิน</span>
+            <span class="font-bold text-blue-900 text-base" id="pTotalBank"></span>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-blue-600 bg-blue-100 rounded-lg px-3 py-2">
+          กรุณาโอนเงินตามยอดที่ระบุและอัปโหลดสลิป
+        </div>
+      </div>
+
+      <!-- LINE Pay -->
+      <div class="bg-white rounded-2xl shadow p-5">
+        <div class="text-sm font-semibold text-gray-700 mb-4">ชำระผ่าน LINE Pay</div>
+        <button onclick="payWithLinePay()"
+          class="w-full flex items-center justify-center gap-3 bg-[#00b900] hover:bg-[#009900] text-white font-semibold py-4 rounded-xl transition text-base">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.494.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+          จ่ายด้วย LINE Pay
+        </button>
+        <p class="text-xs text-gray-400 text-center mt-2">ปลอดภัย · ชำระทันที · ยืนยันอัตโนมัติ</p>
+      </div>
+
+      <!-- PromptPay / QR -->
+      <div class="bg-white rounded-2xl shadow p-5">
+        <div class="text-sm font-semibold text-gray-700 mb-4">🟣 ชำระผ่าน PromptPay QR</div>
+        <div id="qrArea" class="hidden text-center space-y-3">
+          <img id="qrImage" src="" alt="QR Code" class="mx-auto max-w-[220px] rounded-xl border border-gray-200"/>
+          <p class="text-xs text-gray-500">สแกน QR ด้วยแอปธนาคารของคุณ</p>
+          <div id="qrPolling" class="text-xs text-yellow-600 animate-pulse">รอการชำระเงิน...</div>
+        </div>
+        <button id="qrBtn" onclick="payWithPromptPay()"
+          class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 rounded-xl transition text-base">
+          สร้าง QR Code
+        </button>
+        <p class="text-xs text-gray-400 text-center mt-2">รองรับ PromptPay ทุกธนาคาร · ยืนยันอัตโนมัติ</p>
+      </div>
+
+      <div class="flex items-center gap-3 text-gray-400 text-sm">
+        <div class="flex-1 h-px bg-gray-200"></div>
+        <span>หรือโอนแล้วอัปโหลดสลิป</span>
+        <div class="flex-1 h-px bg-gray-200"></div>
+      </div>
+
+      <!-- Slip upload -->
+      <div class="bg-white rounded-2xl shadow p-5">
+        <div class="text-sm font-semibold text-gray-700 mb-4">โอนเงินและอัปโหลดสลิป</div>
+
+        <label for="slipFile"
+          class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+          <div id="uploadPlaceholder" class="text-center">
+            <div class="text-4xl mb-2">📎</div>
+            <div class="text-sm text-gray-500">แตะเพื่อเลือกรูปสลิป</div>
+            <div class="text-xs text-gray-400 mt-1">JPEG, PNG (สูงสุด 5MB)</div>
+          </div>
+          <img id="slipPreview" class="hidden w-full h-full object-contain rounded-xl" alt="slip preview"/>
+          <input type="file" id="slipFile" accept="image/jpeg,image/png,image/webp" class="hidden"
+            onchange="previewSlip(this)"/>
+        </label>
+
+        <div id="uploadError" class="text-red-600 text-sm mt-2 hidden"></div>
+
+        <button id="submitBtn" onclick="submitPayment()"
+          class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl transition text-lg disabled:opacity-50">
+          ส่งสลิป
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const APP_URL = "{{ app_url }}";
+    const LIFF_ID = "{{ liff_id }}";
+    let booking = null;
+
+    async function payWithLinePay() {
+      if (!booking) return;
+      const btn = event.target.closest('button');
+      btn.disabled = true;
+      btn.textContent = 'กำลังเชื่อมต่อ LINE Pay...';
+
+      try {
+        const res = await fetch(`${APP_URL}/api/payments/linepay/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_ref: booking.booking_ref }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || 'ไม่สามารถเชื่อมต่อ LINE Pay ได้');
+          btn.disabled = false;
+          btn.innerHTML = '&hellip; จ่ายด้วย LINE Pay';
+          return;
+        }
+        // Redirect to LINE Pay payment page
+        window.location.href = data.payment_url;
+      } catch (e) {
+        alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+        btn.disabled = false;
+      }
+    }
+
+    let promptPayChargeId = null;
+    let promptPayPoller = null;
+
+    async function payWithPromptPay() {
+      if (!booking) return;
+      const btn = document.getElementById('qrBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังสร้าง QR...';
+
+      try {
+        const res = await fetch(`${APP_URL}/api/payments/promptpay/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_ref: booking.booking_ref }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || 'ไม่สามารถสร้าง QR ได้');
+          btn.disabled = false;
+          btn.textContent = 'สร้าง QR Code';
+          return;
+        }
+
+        promptPayChargeId = data.charge_id;
+        btn.classList.add('hidden');
+        if (data.qr_url) {
+          document.getElementById('qrImage').src = data.qr_url;
+        }
+        document.getElementById('qrArea').classList.remove('hidden');
+
+        // Poll every 5 seconds for up to 10 minutes
+        let attempts = 0;
+        promptPayPoller = setInterval(async () => {
+          attempts++;
+          if (attempts > 120) {
+            clearInterval(promptPayPoller);
+            document.getElementById('qrPolling').textContent = 'หมดเวลา กรุณาลองใหม่';
+            return;
+          }
+          const statusRes = await fetch(`${APP_URL}/api/payments/promptpay/status/${promptPayChargeId}`);
+          const statusData = await statusRes.json();
+          if (statusData.status === 'successful') {
+            clearInterval(promptPayPoller);
+            document.getElementById('qrPolling').textContent = '✅ ชำระเงินสำเร็จ! กำลังไปหน้ายืนยัน...';
+            document.getElementById('qrPolling').className = 'text-sm text-green-600 font-semibold';
+            setTimeout(() => {
+              window.location.href = `/liff/confirm?ref=${booking.booking_ref}`;
+            }, 1500);
+          }
+        }, 5000);
+      } catch (e) {
+        alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+        btn.disabled = false;
+        btn.textContent = 'สร้าง QR Code';
+      }
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('คัดลอกแล้ว: ' + text);
+      });
+    }
+
+    function previewSlip(input) {
+      const file = input.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        document.getElementById('uploadError').textContent = 'ไฟล์ใหญ่เกิน 5MB';
+        document.getElementById('uploadError').classList.remove('hidden');
+        input.value = '';
+        return;
+      }
+      document.getElementById('uploadError').classList.add('hidden');
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('uploadPlaceholder').classList.add('hidden');
+        const preview = document.getElementById('slipPreview');
+        preview.src = e.target.result;
+        preview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function submitPayment() {
+      const file = document.getElementById('slipFile').files[0];
+      const errEl = document.getElementById('uploadError');
+      errEl.classList.add('hidden');
+
+      if (!file) {
+        errEl.textContent = 'กรุณาเลือกรูปสลิป';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังส่ง...';
+
+      const formData = new FormData();
+      formData.append('booking_ref', booking.booking_ref);
+      formData.append('amount', booking.total_price);
+      formData.append('file', file);
+
+      try {
+        const res = await fetch(`${APP_URL}/api/payments/upload-slip`, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.detail || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+          errEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = 'ส่งสลิป';
+          return;
+        }
+        document.getElementById('paymentForm').classList.add('hidden');
+        document.getElementById('confirmLink').href = `/liff/confirm?ref=${booking.booking_ref}`;
+        document.getElementById('successState').classList.remove('hidden');
+      } catch (e) {
+        errEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'ส่งสลิป';
+      }
+    }
+
+    async function loadBooking() {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      if (!ref) {
+        showError('ไม่พบรหัสการจอง');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${APP_URL}/api/bookings/${ref}`);
+        if (!res.ok) {
+          showError('ไม่พบการจองนี้');
+          return;
+        }
+        booking = await res.json();
+
+        if (booking.status === 'cancelled') {
+          showError('การจองนี้ถูกยกเลิกแล้ว');
+          return;
+        }
+        if (['confirmed', 'checked_in', 'checked_out'].includes(booking.status)) {
+          showError('การจองนี้ชำระเงินแล้ว');
+          return;
+        }
+
+        document.getElementById('pRef').textContent = booking.booking_ref;
+        document.getElementById('pDates').textContent = `${booking.check_in} → ${booking.check_out}`;
+        const totalText = `฿${Number(booking.total_price).toLocaleString()}`;
+        document.getElementById('pTotal').textContent = totalText;
+        document.getElementById('pTotalBank').textContent = totalText;
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('paymentForm').classList.remove('hidden');
+      } catch (e) {
+        showError('เกิดข้อผิดพลาด กรุณาลองใหม่');
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('errorMsg').textContent = msg;
+      document.getElementById('errorState').classList.remove('hidden');
+    }
+
+    async function initLiff() {
+      if (!LIFF_ID) return;
+      try {
+        await liff.init({ liffId: LIFF_ID });
+      } catch (e) {
+        console.warn('LIFF init failed:', e.message);
+      }
+    }
+
+    initLiff();
+    loadBooking();
+  </script>
+</body>
+</html>

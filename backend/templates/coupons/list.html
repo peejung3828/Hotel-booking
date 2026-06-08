@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}คูปอง - Hotel CMS{% endblock %}
+{% block page_title %}จัดการคูปอง{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <p class="text-gray-500">ทั้งหมด {{ coupons|length }} คูปอง</p>
+  <button onclick="openCreateModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition">
+    + สร้างคูปอง
+  </button>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">รหัสคูปอง</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ประเภทส่วนลด</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ส่วนลด</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ใช้แล้ว/จำกัด</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">วันหมดอายุ</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">สถานะ</th>
+        <th class="text-right px-6 py-3 font-medium text-gray-600">จัดการ</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for coupon in coupons %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 font-mono font-bold text-blue-600">{{ coupon.code }}</td>
+        <td class="px-6 py-4 capitalize text-gray-600">{{ 'เปอร์เซ็นต์' if coupon.discount_type == 'percent' else 'จำนวนเงิน' }}</td>
+        <td class="px-6 py-4 font-semibold">
+          {% if coupon.discount_type == 'percent' %}{{ coupon.discount_value }}%
+          {% else %}฿{{ "{:,.0f}".format(coupon.discount_value) }}{% endif %}
+        </td>
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-gray-200 rounded-full h-1.5">
+              <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ [100, (coupon.used_count / coupon.max_usage * 100)|int]|min }}%"></div>
+            </div>
+            <span class="text-gray-600 text-xs">{{ coupon.used_count }}/{{ coupon.max_usage }}</span>
+          </div>
+        </td>
+        <td class="px-6 py-4 text-gray-600">{{ coupon.expire_date if coupon.expire_date else '—' }}</td>
+        <td class="px-6 py-4">
+          {% if coupon.is_active and (not coupon.expire_date or coupon.expire_date >= today) %}
+            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">ใช้งานได้</span>
+          {% else %}
+            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">หมดอายุ/ปิด</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-4 text-right">
+          <button onclick="deleteCoupon('{{ coupon.id }}')" class="text-red-600 hover:text-red-800 text-xs border border-red-200 px-2 py-1 rounded">ลบ</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400">ยังไม่มีคูปอง</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Create Coupon Modal -->
+<div id="createModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="font-semibold text-gray-800 text-lg">สร้างคูปองใหม่</h3>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+    </div>
+    <form id="couponForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">รหัสคูปอง</label>
+        <input type="text" id="code" required class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="SUMMER2026"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ประเภท</label>
+          <select id="discount_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="percent">เปอร์เซ็นต์ (%)</option>
+            <option value="fixed">จำนวนเงิน (฿)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ค่าส่วนลด</label>
+          <input type="number" id="discount_value" required min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนสิทธิ์</label>
+          <input type="number" id="max_usage" value="1" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ยอดขั้นต่ำ (฿)</label>
+          <input type="number" id="min_order" min="0" placeholder="ไม่กำหนด" class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันเริ่มต้น</label>
+          <input type="date" id="start_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันหมดอายุ</label>
+          <input type="date" id="expire_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition">
+        สร้างคูปอง
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const today = new Date().toISOString().split('T')[0];
+
+  function openCreateModal() { document.getElementById('createModal').classList.remove('hidden'); }
+  function closeModal() { document.getElementById('createModal').classList.add('hidden'); }
+
+  document.getElementById('couponForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      code: document.getElementById('code').value.toUpperCase(),
+      discount_type: document.getElementById('discount_type').value,
+      discount_value: parseFloat(document.getElementById('discount_value').value),
+      max_usage: parseInt(document.getElementById('max_usage').value),
+      min_order_amount: document.getElementById('min_order').value ? parseFloat(document.getElementById('min_order').value) : null,
+      start_date: document.getElementById('start_date').value || null,
+      expire_date: document.getElementById('expire_date').value || null,
+    };
+    const res = await apiFetch('/api/coupons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) { location.reload(); }
+    else { const e = res ? await res.json() : {}; alert(e.detail || 'สร้างไม่สำเร็จ'); }
+  });
+
+  async function deleteCoupon(id) {
+    if (!confirm('ต้องการลบคูปองนี้ใช่ไหม?')) return;
+    const res = await apiFetch(`/api/coupons/${id}`, { method: 'DELETE' });
+    if (res && res.ok) { location.reload(); }
+    else { alert('ลบไม่สำเร็จ'); }
+  }
+</script>
+{% endblock %}

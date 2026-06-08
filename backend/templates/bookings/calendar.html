@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}ปฏิทินการจอง - Hotel CMS{% endblock %}
+{% block page_title %}ปฏิทินการจอง{% endblock %}
+
+{% block head %}
+<style>
+  .cal-day { min-height: 80px; }
+  .booking-chip { font-size: 10px; line-height: 1.2; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div class="flex items-center gap-3">
+    <button id="prevMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">‹</button>
+    <h2 id="monthLabel" class="text-lg font-semibold text-gray-800 min-w-40 text-center"></h2>
+    <button id="nextMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">›</button>
+  </div>
+  <div class="flex items-center gap-4 text-sm">
+    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-400 rounded"></span> ว่าง</span>
+    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-yellow-400 rounded"></span> บางส่วน</span>
+    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-400 rounded"></span> เต็ม</span>
+  </div>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-hidden">
+  <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+    {% for day in ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'] %}
+    <div class="px-3 py-3 text-center text-sm font-medium text-gray-600">{{ day }}</div>
+    {% endfor %}
+  </div>
+  <div id="calendarGrid" class="grid grid-cols-7"></div>
+</div>
+
+<!-- Booking Detail Modal -->
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-semibold text-gray-800" id="modalDate"></h3>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const bookingsData = {{ bookings | tojson }};
+  const totalRooms = {{ rooms | length }};
+
+  let currentDate = new Date();
+  currentDate.setDate(1);
+
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    document.getElementById('monthLabel').textContent =
+      currentDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) {
+      grid.appendChild(createEmptyCell());
+    }
+
+    // Day cells
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayBookings = getDayBookings(dateStr);
+      grid.appendChild(createDayCell(d, dateStr, dayBookings));
+    }
+  }
+
+  function getDayBookings(dateStr) {
+    return bookingsData.filter(b => b.check_in <= dateStr && b.check_out > dateStr);
+  }
+
+  function createEmptyCell() {
+    const el = document.createElement('div');
+    el.className = 'cal-day border-b border-r border-gray-100 p-2 bg-gray-50';
+    return el;
+  }
+
+  function createDayCell(day, dateStr, dayBookings) {
+    const el = document.createElement('div');
+    const occupancy = dayBookings.length / Math.max(totalRooms, 1);
+    let bgClass = '';
+    if (occupancy === 0) bgClass = '';
+    else if (occupancy < 0.5) bgClass = 'bg-yellow-50';
+    else if (occupancy < 1) bgClass = 'bg-orange-50';
+    else bgClass = 'bg-red-50';
+
+    el.className = `cal-day border-b border-r border-gray-100 p-2 cursor-pointer hover:bg-blue-50 transition ${bgClass}`;
+    el.innerHTML = `
+      <div class="flex items-start justify-between mb-1">
+        <span class="text-sm font-medium text-gray-700">${day}</span>
+        ${dayBookings.length > 0 ? `<span class="text-xs bg-blue-100 text-blue-700 px-1.5 rounded-full">${dayBookings.length}</span>` : ''}
+      </div>
+      ${dayBookings.slice(0, 2).map(b => `
+        <div class="booking-chip bg-blue-600 text-white px-1.5 py-0.5 rounded mb-0.5 truncate">${b.booking_ref}</div>
+      `).join('')}
+      ${dayBookings.length > 2 ? `<div class="booking-chip text-gray-400">+${dayBookings.length - 2} เพิ่มเติม</div>` : ''}
+    `;
+
+    if (dayBookings.length > 0) {
+      el.onclick = () => showDayDetail(dateStr, dayBookings);
+    }
+
+    return el;
+  }
+
+  function showDayDetail(dateStr, bookings) {
+    document.getElementById('modalDate').textContent = `การจองวันที่ ${dateStr}`;
+    document.getElementById('modalContent').innerHTML = bookings.map(b => `
+      <div class="border border-gray-200 rounded-lg p-3 mb-3">
+        <div class="flex justify-between items-start">
+          <span class="font-mono font-semibold text-blue-600">${b.booking_ref}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${getStatusClass(b.status)}">${b.status}</span>
+        </div>
+        <div class="text-sm text-gray-600 mt-1">${b.customer_name} — ฿${Number(b.total_price).toLocaleString()}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${b.check_in} → ${b.check_out} (${b.nights} คืน)</div>
+      </div>
+    `).join('');
+    document.getElementById('modal').classList.remove('hidden');
+  }
+
+  function getStatusClass(status) {
+    const classes = {
+      pending: 'bg-yellow-100 text-yellow-700',
+      confirmed: 'bg-green-100 text-green-700',
+      checked_in: 'bg-blue-100 text-blue-700',
+      checked_out: 'bg-gray-100 text-gray-700',
+      cancelled: 'bg-red-100 text-red-700',
+    };
+    return classes[status] || 'bg-gray-100';
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+  }
+
+  document.getElementById('prevMonth').onclick = () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+  };
+  document.getElementById('nextMonth').onclick = () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+  };
+
+  renderCalendar();
+</script>
+{% endblock %}

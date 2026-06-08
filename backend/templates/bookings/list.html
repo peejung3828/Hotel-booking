@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}รายการจอง - Hotel CMS{% endblock %}
+{% block page_title %}รายการจอง{% endblock %}
+
+{% block content %}
+<!-- Search & Filter bar -->
+<form method="get" class="flex flex-wrap gap-3 mb-6">
+  <input type="text" name="q" value="{{ q }}" placeholder="ค้นหา ชื่อ / เบอร์ / รหัสการจอง"
+    class="flex-1 min-w-[200px] px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+
+  <select name="status" onchange="this.form.submit()"
+    class="px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white">
+    <option value="" {% if not status_filter %}selected{% endif %}>ทุกสถานะ</option>
+    <option value="pending"    {% if status_filter=='pending' %}selected{% endif %}>⏳ รอดำเนินการ</option>
+    <option value="confirmed"  {% if status_filter=='confirmed' %}selected{% endif %}>✅ ยืนยันแล้ว</option>
+    <option value="checked_in" {% if status_filter=='checked_in' %}selected{% endif %}>🏠 เช็คอินแล้ว</option>
+    <option value="checked_out"{% if status_filter=='checked_out' %}selected{% endif %}>👋 เช็คเอาต์แล้ว</option>
+    <option value="cancelled"  {% if status_filter=='cancelled' %}selected{% endif %}>❌ ยกเลิก</option>
+  </select>
+
+  <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition">
+    ค้นหา
+  </button>
+  {% if q or status_filter %}
+  <a href="/cms/bookings" class="px-5 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition">
+    ล้างตัวกรอง
+  </a>
+  {% endif %}
+</form>
+
+<!-- Stats summary -->
+<div class="grid grid-cols-5 gap-3 mb-6">
+  {% set status_counts = {'pending': 0, 'confirmed': 0, 'checked_in': 0, 'checked_out': 0, 'cancelled': 0} %}
+  {% for b in bookings %}{% set _ = status_counts.update({b.status: status_counts.get(b.status, 0) + 1}) %}{% endfor %}
+  {% for st, label, color in [
+    ('pending','รอดำเนินการ','yellow'),
+    ('confirmed','ยืนยันแล้ว','green'),
+    ('checked_in','เช็คอิน','blue'),
+    ('checked_out','เช็คเอาต์','gray'),
+    ('cancelled','ยกเลิก','red'),
+  ] %}
+  <div class="bg-white rounded-xl shadow px-4 py-3 text-center">
+    <div class="text-2xl font-bold text-{{ color }}-600">{{ status_counts.get(st, 0) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Bookings table -->
+<div class="bg-white rounded-xl shadow overflow-hidden">
+  <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+    <span class="text-sm text-gray-500">แสดง {{ bookings|length }} รายการ</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="text-left px-5 py-3 font-medium text-gray-600">รหัสการจอง</th>
+          <th class="text-left px-5 py-3 font-medium text-gray-600">ห้อง</th>
+          <th class="text-left px-5 py-3 font-medium text-gray-600">ลูกค้า</th>
+          <th class="text-left px-5 py-3 font-medium text-gray-600">เช็คอิน</th>
+          <th class="text-left px-5 py-3 font-medium text-gray-600">เช็คเอาต์</th>
+          <th class="text-left px-5 py-3 font-medium text-gray-600">คืน</th>
+          <th class="text-right px-5 py-3 font-medium text-gray-600">ยอดรวม</th>
+          <th class="text-center px-5 py-3 font-medium text-gray-600">สถานะ</th>
+          <th class="text-center px-5 py-3 font-medium text-gray-600">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for b in bookings %}
+        <tr class="hover:bg-gray-50 transition cursor-pointer" id="row-{{ b.id }}"
+          onclick="openDetail('{{ b.booking_ref }}')">
+          <td class="px-5 py-4">
+            <div class="font-mono font-bold text-blue-700">{{ b.booking_ref }}</div>
+            <div class="text-xs text-gray-400 mt-0.5">{{ b.created_at.strftime('%d/%m/%y %H:%M') }}</div>
+          </td>
+          <td class="px-5 py-4 text-gray-700 text-sm">{{ b.room.name if b.room else '—' }}</td>
+          <td class="px-5 py-4">
+            <div class="font-medium text-gray-800">{{ b.customer_name }}</div>
+            <div class="text-xs text-gray-400">{{ b.customer_phone }}</div>
+          </td>
+          <td class="px-5 py-4 text-gray-700">{{ b.check_in }}</td>
+          <td class="px-5 py-4 text-gray-700">{{ b.check_out }}</td>
+          <td class="px-5 py-4 text-gray-600">{{ b.nights }}</td>
+          <td class="px-5 py-4 text-right font-semibold text-gray-800">฿{{ "{:,.0f}".format(b.total_price) }}</td>
+          <td class="px-5 py-4 text-center">
+            {% if b.status == 'pending' %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⏳ รอดำเนินการ</span>
+            {% elif b.status == 'confirmed' %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✅ ยืนยันแล้ว</span>
+            {% elif b.status == 'checked_in' %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">🏠 เช็คอิน</span>
+            {% elif b.status == 'checked_out' %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">👋 เช็คเอาต์</span>
+            {% elif b.status == 'cancelled' %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">❌ ยกเลิก</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-4 text-center" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-center gap-1.5">
+              {% if b.status == 'pending' %}
+                <button onclick="changeStatus('{{ b.booking_ref }}', 'confirm')"
+                  class="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition">ยืนยัน</button>
+                <button onclick="changeStatus('{{ b.booking_ref }}', 'cancel')"
+                  class="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition">ยกเลิก</button>
+              {% elif b.status == 'confirmed' %}
+                <button onclick="changeStatus('{{ b.booking_ref }}', 'checkin')"
+                  class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition">เช็คอิน</button>
+              {% elif b.status == 'checked_in' %}
+                <button onclick="changeStatus('{{ b.booking_ref }}', 'checkout')"
+                  class="px-2.5 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-lg transition">เช็คเอาต์</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="px-6 py-16 text-center text-gray-400">
+            <div class="text-4xl mb-3">📋</div>
+            ไม่พบรายการจอง
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+<!-- Booking Detail Modal -->
+<div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+      <h3 class="font-bold text-gray-800 text-lg" id="modalRef">—</h3>
+      <button onclick="closeDetail()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+    </div>
+
+    <div id="modalBody" class="p-6 space-y-5">
+      <div class="text-center py-8 text-gray-400">กำลังโหลด...</div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+  const STATUS_ACTIONS = {
+    confirm:  { url: ref => `/api/bookings/${ref}/confirm`,  method: 'PUT', body: {} },
+    checkin:  { url: ref => `/api/bookings/${ref}/checkin`,  method: 'PUT', body: null },
+    checkout: { url: ref => `/api/bookings/${ref}/checkout`, method: 'PUT', body: null },
+    cancel:   { url: ref => `/api/bookings/${ref}/cancel`,   method: 'PUT', body: {} },
+  };
+
+  const STATUS_LABELS = {
+    pending: '⏳ รอดำเนินการ', confirmed: '✅ ยืนยันแล้ว',
+    checked_in: '🏠 เช็คอิน', checked_out: '👋 เช็คเอาต์', cancelled: '❌ ยกเลิก',
+  };
+
+  const STATUS_BADGE = {
+    pending:     'bg-yellow-100 text-yellow-800',
+    confirmed:   'bg-green-100 text-green-800',
+    checked_in:  'bg-blue-100 text-blue-800',
+    checked_out: 'bg-gray-100 text-gray-600',
+    cancelled:   'bg-red-100 text-red-700',
+  };
+
+  async function changeStatus(ref, action) {
+    const cfg = STATUS_ACTIONS[action];
+    if (!cfg) return;
+    if (!confirm(`ต้องการ${action === 'cancel' ? 'ยกเลิก' : ''}การจอง ${ref} ใช่ไหม?`)) return;
+
+    const opts = { method: cfg.method };
+    if (cfg.body !== null) {
+      opts.headers = { 'Content-Type': 'application/json' };
+      opts.body = JSON.stringify(cfg.body);
+    }
+
+    const res = await apiFetch(cfg.url(ref), opts);
+    if (!res) return;
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || 'ไม่สามารถดำเนินการได้');
+      return;
+    }
+    const data = await res.json();
+    // Update row in-place without full reload
+    showAlert('success', `อัปเดตสถานะ ${ref} เป็น ${STATUS_LABELS[data.status] || data.status} แล้ว`);
+    setTimeout(() => location.reload(), 800);
+  }
+
+  async function openDetail(ref) {
+    document.getElementById('modalRef').textContent = ref;
+    document.getElementById('modalBody').innerHTML = '<div class="text-center py-8 text-gray-400">กำลังโหลด...</div>';
+    document.getElementById('detailModal').classList.remove('hidden');
+
+    try {
+      const [bookingRes, paymentsRes] = await Promise.all([
+        apiFetch(`/api/bookings/${ref}`),
+        apiFetch(`/api/payments`),
+      ]);
+      const b = await bookingRes.json();
+      const allPayments = await paymentsRes.json();
+      const payments = allPayments.filter(p => p.booking_id === b.id);
+      renderDetail(b, payments);
+    } catch (e) {
+      document.getElementById('modalBody').innerHTML = '<div class="text-center py-8 text-red-500">โหลดข้อมูลไม่สำเร็จ</div>';
+    }
+  }
+
+  function closeDetail() {
+    document.getElementById('detailModal').classList.add('hidden');
+  }
+
+  document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetail();
+  });
+
+  function renderDetail(b, payments) {
+    const statusLabel = STATUS_LABELS[b.status] || b.status;
+    const statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_BADGE[b.status] || 'bg-gray-100'}">${statusLabel}</span>`;
+
+    const paymentRows = payments.length ? payments.map(p => `
+      <tr class="border-t border-gray-100">
+        <td class="py-2 text-gray-600 capitalize">${p.method.replace('_',' ')}</td>
+        <td class="py-2 font-semibold">฿${Number(p.amount).toLocaleString()}</td>
+        <td class="py-2">
+          <span class="px-2 py-0.5 rounded text-xs font-medium
+            ${p.status==='verified' ? 'bg-green-100 text-green-700' : p.status==='rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">
+            ${p.status}
+          </span>
+        </td>
+        <td class="py-2">
+          ${p.slip_url ? `<a href="${p.slip_url}" target="_blank" class="text-blue-600 text-xs hover:underline">ดูสลิป</a>` : '—'}
+        </td>
+        <td class="py-2 text-gray-400 text-xs">${p.verified_by || '—'}</td>
+      </tr>`).join('') :
+      '<tr><td colspan="5" class="py-4 text-center text-gray-400 text-sm">ยังไม่มีการชำระเงิน</td></tr>';
+
+    document.getElementById('modalBody').innerHTML = `
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2 flex items-center gap-3">
+          <div class="text-2xl">${b.status==='pending'?'⏳':b.status==='confirmed'?'✅':b.status==='checked_in'?'🏠':b.status==='checked_out'?'👋':'❌'}</div>
+          <div>${statusBadge}</div>
+        </div>
+
+        <div class="bg-gray-50 rounded-xl p-4 space-y-2">
+          <div class="text-xs font-semibold text-gray-400 uppercase mb-2">ข้อมูลลูกค้า</div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">ชื่อ</span><span class="font-medium">${b.customer_name}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">เบอร์โทร</span><span class="font-medium">${b.customer_phone}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">LINE ID</span><span class="font-mono text-xs text-gray-600">${b.customer_line_id}</span></div>
+        </div>
+
+        <div class="bg-gray-50 rounded-xl p-4 space-y-2">
+          <div class="text-xs font-semibold text-gray-400 uppercase mb-2">รายละเอียดการจอง</div>
+          ${b.room_name ? `<div class="flex justify-between text-sm"><span class="text-gray-500">ห้อง</span><span class="font-medium">${b.room_name}</span></div>` : ''}
+          <div class="flex justify-between text-sm"><span class="text-gray-500">เช็คอิน</span><span class="font-medium">${b.check_in}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">เช็คเอาต์</span><span class="font-medium">${b.check_out}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">จำนวนคืน</span><span class="font-medium">${b.nights} คืน</span></div>
+        </div>
+
+        <div class="col-span-2 bg-blue-50 rounded-xl p-4 space-y-2">
+          <div class="text-xs font-semibold text-gray-400 uppercase mb-2">ราคา</div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">ราคาพัก</span><span>฿${Number(b.base_price).toLocaleString()}</span></div>
+          ${b.discount_amount > 0 ? `<div class="flex justify-between text-sm"><span class="text-gray-500">ส่วนลด ${b.coupon_code ? `(${b.coupon_code})` : ''}</span><span class="text-green-600">-฿${Number(b.discount_amount).toLocaleString()}</span></div>` : ''}
+          <div class="flex justify-between font-bold text-base pt-1 border-t border-blue-200"><span>ยอดรวม</span><span class="text-blue-700">฿${Number(b.total_price).toLocaleString()}</span></div>
+        </div>
+
+        ${b.notes ? `<div class="col-span-2 bg-yellow-50 rounded-xl p-4 text-sm text-yellow-800"><span class="font-medium">หมายเหตุ:</span> ${b.notes}</div>` : ''}
+
+        <div class="col-span-2">
+          <div class="text-xs font-semibold text-gray-400 uppercase mb-3">ประวัติการชำระเงิน</div>
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs text-gray-500">
+              <th class="text-left pb-2">วิธีชำระ</th><th class="text-left pb-2">จำนวน</th>
+              <th class="text-left pb-2">สถานะ</th><th class="text-left pb-2">สลิป</th>
+              <th class="text-left pb-2">ยืนยันโดย</th>
+            </tr></thead>
+            <tbody>${paymentRows}</tbody>
+          </table>
+        </div>
+
+        <div class="col-span-2 text-xs text-gray-400 pt-2 border-t border-gray-100">
+          สร้างเมื่อ: ${new Date(b.created_at).toLocaleString('th-TH')} · อัปเดต: ${new Date(b.updated_at).toLocaleString('th-TH')}
+        </div>
+      </div>`;
+  }
+
+  function showAlert(type, msg) {
+    const el = document.getElementById('globalAlert');
+    el.className = `mx-6 mt-4 px-4 py-3 rounded-lg text-sm ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3000);
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}ห้องพัก - Hotel CMS{% endblock %}
+{% block page_title %}จัดการห้องพัก{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <p class="text-gray-500">ทั้งหมด {{ rooms|length }} ห้อง</p>
+  <a href="/cms/rooms/create" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition">
+    + เพิ่มห้องใหม่
+  </a>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b border-gray-200">
+      <tr>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ห้อง</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ประเภท</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ราคา/คืน</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ผู้เข้าพักสูงสุด</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">สถานะ</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">รูปภาพ</th>
+        <th class="text-right px-6 py-3 font-medium text-gray-600">จัดการ</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for room in rooms %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-3">
+            {% set cover = (room.images | selectattr('is_cover') | list | first) or (room.images | first) %}
+            {% if cover %}
+              <img src="{{ cover.url }}" alt="" class="w-12 h-10 object-cover rounded-lg"/>
+            {% else %}
+              <div class="w-12 h-10 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs">No img</div>
+            {% endif %}
+            <div>
+              <p class="font-semibold text-gray-800">{{ room.name }}</p>
+              <p class="text-xs text-gray-400">{{ room.id }}</p>
+            </div>
+          </div>
+        </td>
+        <td class="px-6 py-4 capitalize text-gray-600">{{ room.type }}</td>
+        <td class="px-6 py-4 font-semibold">฿{{ "{:,.0f}".format(room.price_per_night) }}</td>
+        <td class="px-6 py-4 text-gray-600">{{ room.max_guests }} คน</td>
+        <td class="px-6 py-4">
+          {% if room.status == 'available' and room.is_active %}
+            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">ว่าง</span>
+          {% elif room.status == 'maintenance' %}
+            <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">ซ่อมบำรุง</span>
+          {% else %}
+            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">ปิด</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-4 text-gray-500">{{ room.images|length }} รูป</td>
+        <td class="px-6 py-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            <a href="/cms/rooms/{{ room.id }}/images" class="text-purple-600 hover:text-purple-800 text-xs border border-purple-200 px-2 py-1 rounded">รูปภาพ</a>
+            <a href="/cms/rooms/{{ room.id }}/edit" class="text-blue-600 hover:text-blue-800 text-xs border border-blue-200 px-2 py-1 rounded">แก้ไข</a>
+            <button onclick="deleteRoom('{{ room.id }}')" class="text-red-600 hover:text-red-800 text-xs border border-red-200 px-2 py-1 rounded">ลบ</button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400">ยังไม่มีห้องพัก กด "เพิ่มห้องใหม่" เพื่อเริ่มต้น</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function deleteRoom(id) {
+    if (!confirm('ต้องการลบห้องนี้ใช่ไหม?')) return;
+    const res = await apiFetch(`/api/rooms/${id}`, { method: 'DELETE' });
+    if (res && res.ok) {
+      location.reload();
+    } else {
+      alert('ลบไม่สำเร็จ');
+    }
+  }
+</script>
+{% endblock %}

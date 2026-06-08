@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}ผู้ดูแลระบบ - Hotel CMS{% endblock %}
+{% block page_title %}ผู้ดูแลระบบ{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <p class="text-gray-500">ทั้งหมด {{ users|length }} คน</p>
+  <button onclick="openCreateModal()"
+    class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition">
+    + เพิ่มผู้ดูแล
+  </button>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b border-gray-100">
+      <tr>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">ชื่อ</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">Username</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">LINE ID</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">Role</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">สถานะ</th>
+        <th class="text-left px-6 py-3 font-medium text-gray-600">เพิ่มเมื่อ</th>
+        <th class="text-right px-6 py-3 font-medium text-gray-600">จัดการ</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-50">
+      {% for u in users %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm
+                        {% if u.role == 'super_admin' %}bg-purple-600{% else %}bg-blue-500{% endif %}">
+              {{ u.name[0] | upper }}
+            </div>
+            <span class="font-medium text-gray-800">{{ u.name }}</span>
+          </div>
+        </td>
+        <td class="px-6 py-4 font-mono text-gray-600">{{ u.username or '—' }}</td>
+        <td class="px-6 py-4 font-mono text-xs text-gray-500">
+          {% if u.line_id %}
+            <span class="truncate max-w-28 inline-block" title="{{ u.line_id }}">{{ u.line_id[:16] }}...</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-6 py-4">
+          {% if u.role == 'super_admin' %}
+            <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">⭐ Super Admin</span>
+          {% else %}
+            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">🛠 Admin</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-4">
+          <button onclick="toggleActive('{{ u.id }}', {{ 'true' if u.is_active else 'false' }})"
+            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                   {% if u.is_active %}bg-green-500{% else %}bg-gray-300{% endif %}
+                   {% if u.id | string == current_user_id %}opacity-50 cursor-not-allowed{% endif %}"
+            {% if u.id | string == current_user_id %}disabled title="ไม่สามารถปิดตัวเองได้"{% endif %}>
+            <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform
+                         {% if u.is_active %}translate-x-6{% else %}translate-x-1{% endif %}"></span>
+          </button>
+        </td>
+        <td class="px-6 py-4 text-gray-400 text-xs">{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+        <td class="px-6 py-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            <button onclick="openEditModal('{{ u.id }}','{{ u.name }}','{{ u.username or '' }}','{{ u.line_id or '' }}','{{ u.role }}')"
+              class="text-blue-600 hover:text-blue-800 text-xs border border-blue-200 px-2 py-1 rounded">
+              แก้ไข
+            </button>
+            {% if u.id | string != current_user_id %}
+            <button onclick="deleteUser('{{ u.id }}')"
+              class="text-red-600 hover:text-red-800 text-xs border border-red-200 px-2 py-1 rounded">
+              ลบ
+            </button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400">ยังไม่มีผู้ดูแลระบบ</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="userModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+    <div class="flex justify-between items-center mb-5">
+      <h3 id="modalTitle" class="font-semibold text-gray-800 text-lg">เพิ่มผู้ดูแลใหม่</h3>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+    </div>
+    <form id="userForm" class="space-y-4">
+      <input type="hidden" id="editUserId"/>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อแสดงผล <span class="text-red-500">*</span></label>
+        <input type="text" id="userName" required
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Username (สำหรับ login)</label>
+        <input type="text" id="userUsername"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"/>
+      </div>
+      <div id="passwordField">
+        <label class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน <span class="text-red-500" id="pwRequired">*</span></label>
+        <input type="password" id="userPassword"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+        <p id="pwHint" class="text-xs text-gray-400 mt-1 hidden">เว้นว่างถ้าไม่ต้องการเปลี่ยน</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">LINE User ID</label>
+        <input type="text" id="userLineId" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+        <select id="userRole"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+      </div>
+      <button type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition text-sm">
+        บันทึก
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const currentUserId = '{{ current_user_id }}';
+
+  function openCreateModal() {
+    document.getElementById('modalTitle').textContent = 'เพิ่มผู้ดูแลใหม่';
+    document.getElementById('editUserId').value = '';
+    document.getElementById('userName').value = '';
+    document.getElementById('userUsername').value = '';
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userLineId').value = '';
+    document.getElementById('userRole').value = 'admin';
+    document.getElementById('pwRequired').classList.remove('hidden');
+    document.getElementById('pwHint').classList.add('hidden');
+    document.getElementById('userModal').classList.remove('hidden');
+  }
+
+  function openEditModal(id, name, username, lineId, role) {
+    document.getElementById('modalTitle').textContent = 'แก้ไขผู้ดูแล';
+    document.getElementById('editUserId').value = id;
+    document.getElementById('userName').value = name;
+    document.getElementById('userUsername').value = username;
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userLineId').value = lineId;
+    document.getElementById('userRole').value = role;
+    document.getElementById('pwRequired').classList.add('hidden');
+    document.getElementById('pwHint').classList.remove('hidden');
+    document.getElementById('userModal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('userModal').classList.add('hidden'); }
+
+  document.getElementById('userForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editUserId').value;
+    const payload = {
+      name: document.getElementById('userName').value.trim(),
+      username: document.getElementById('userUsername').value.trim() || null,
+      password: document.getElementById('userPassword').value || null,
+      line_id: document.getElementById('userLineId').value.trim() || null,
+      role: document.getElementById('userRole').value,
+    };
+
+    const url = id ? `/api/admin-users/${id}` : '/api/admin-users';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) location.reload();
+    else {
+      const err = res ? await res.json() : {};
+      alert(err.detail || 'บันทึกไม่สำเร็จ');
+    }
+  });
+
+  async function toggleActive(id, currentActive) {
+    const res = await apiFetch(`/api/admin-users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !currentActive }),
+    });
+    if (res && res.ok) location.reload();
+  }
+
+  async function deleteUser(id) {
+    if (!confirm('ต้องการลบผู้ดูแลคนนี้ใช่ไหม?')) return;
+    const res = await apiFetch(`/api/admin-users/${id}`, { method: 'DELETE' });
+    if (res && res.ok) location.reload();
+    else alert('ลบไม่สำเร็จ');
+  }
+</script>
+{% endblock %}

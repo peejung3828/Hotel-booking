@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}รูปภาพ - {{ room.name }}{% endblock %}
+{% block page_title %}รูปภาพห้อง: {{ room.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-4">
+  <a href="/cms/rooms" class="text-gray-500 hover:text-gray-700">← กลับ</a>
+  <div class="flex-1"></div>
+</div>
+
+<!-- Upload Zone -->
+<div class="bg-white rounded-xl shadow p-6 mb-6">
+  <h3 class="font-semibold text-gray-800 mb-4">อัปโหลดรูปภาพ</h3>
+  <div id="dropzone"
+    class="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition"
+    ondragover="event.preventDefault()" ondrop="handleDrop(event)" onclick="document.getElementById('fileInput').click()">
+    <div class="text-4xl mb-3">📁</div>
+    <p class="text-gray-600">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+    <p class="text-sm text-gray-400 mt-1">รองรับ JPG, PNG, WebP — ขนาดสูงสุด 10MB</p>
+    <input type="file" id="fileInput" multiple accept="image/*" class="hidden" onchange="handleFiles(this.files)"/>
+  </div>
+
+  <div class="flex items-center gap-3 mt-4">
+    <label class="flex items-center gap-2 text-sm text-gray-600">
+      <input type="checkbox" id="setCover" class="rounded text-blue-600"/>
+      ตั้งเป็นรูปปก (Cover)
+    </label>
+  </div>
+
+  <div id="uploadProgress" class="hidden mt-4 space-y-2"></div>
+</div>
+
+<!-- Gallery -->
+<div class="bg-white rounded-xl shadow p-6">
+  <h3 class="font-semibold text-gray-800 mb-4">รูปภาพทั้งหมด ({{ room.images|length }} รูป)</h3>
+  <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    {% for img in room.images | sort(attribute='sort_order') %}
+    <div class="relative group rounded-xl overflow-hidden aspect-video bg-gray-100" id="img-{{ img.id }}">
+      <img src="{{ img.url }}" alt="" class="w-full h-full object-cover"/>
+      {% if img.is_cover %}
+        <div class="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">Cover</div>
+      {% endif %}
+      <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+        {% if not img.is_cover %}
+        <button onclick="setCover('{{ img.id }}')" class="bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600">
+          ตั้งเป็น Cover
+        </button>
+        {% endif %}
+        <button onclick="deleteImage('{{ img.id }}')" class="bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-red-600">
+          ลบ
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-span-full text-center text-gray-400 py-10">ยังไม่มีรูปภาพ</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const roomId = '{{ room.id }}';
+
+  function handleDrop(e) {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+  }
+
+  async function handleFiles(files) {
+    const isCover = document.getElementById('setCover').checked;
+    const progressEl = document.getElementById('uploadProgress');
+    progressEl.classList.remove('hidden');
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const progressItem = document.createElement('div');
+      progressItem.className = 'flex items-center gap-3';
+      progressItem.innerHTML = `
+        <div class="flex-1 text-sm text-gray-600">${file.name}</div>
+        <div class="text-sm text-blue-600">กำลังอัปโหลด...</div>
+      `;
+      progressEl.appendChild(progressItem);
+
+      try {
+        const res = await apiFetch(
+          `/api/upload/image/${roomId}?is_cover=${isCover}`,
+          { method: 'POST', body: formData }
+        );
+        if (res && res.ok) {
+          const data = await res.json();
+          progressItem.querySelector('.text-blue-600').textContent = '✅ สำเร็จ';
+          addImageToGallery(data);
+        } else {
+          progressItem.querySelector('.text-blue-600').textContent = '❌ ล้มเหลว';
+        }
+      } catch {
+        progressItem.querySelector('.text-blue-600').textContent = '❌ เกิดข้อผิดพลาด';
+      }
+    }
+  }
+
+  function addImageToGallery(data) {
+    const gallery = document.getElementById('gallery');
+    const div = document.createElement('div');
+    div.className = 'relative group rounded-xl overflow-hidden aspect-video bg-gray-100';
+    div.id = `img-${data.id}`;
+    div.innerHTML = `
+      <img src="${data.url}" class="w-full h-full object-cover"/>
+      ${data.is_cover ? '<div class="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">Cover</div>' : ''}
+      <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+        <button onclick="deleteImage('${data.id}')" class="bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-red-600">ลบ</button>
+      </div>
+    `;
+    gallery.appendChild(div);
+  }
+
+  async function setCover(imageId) {
+    const res = await apiFetch(`/api/upload/image/${imageId}/cover`, { method: 'PUT' });
+    if (res && res.ok) {
+      location.reload();
+    } else {
+      alert('ตั้งค่าไม่สำเร็จ');
+    }
+  }
+
+  async function deleteImage(imageId) {
+    if (!confirm('ต้องการลบรูปนี้ใช่ไหม?')) return;
+    const res = await apiFetch(`/api/upload/image/${imageId}`, { method: 'DELETE' });
+    if (res && res.ok) {
+      document.getElementById(`img-${imageId}`)?.remove();
+    } else {
+      alert('ลบไม่สำเร็จ');
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>รายละเอียดการจอง</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-lg mx-auto pb-10">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-700 to-blue-500 text-white px-5 pt-10 pb-6">
+      <button onclick="history.back()" class="text-blue-200 hover:text-white mb-3 flex items-center gap-1 text-sm">
+        ← กลับ
+      </button>
+      <h1 class="text-xl font-bold">📋 รายละเอียดการจอง</h1>
+      <p class="text-blue-100 text-sm mt-1">ขั้นตอนที่ 2 จาก 4: กรอกข้อมูล</p>
+    </div>
+
+    <!-- Booking Summary -->
+    <div class="bg-white mx-4 mt-4 rounded-2xl shadow p-4">
+      <h3 id="roomName" class="font-bold text-gray-800 text-lg"></h3>
+      <div class="flex justify-between text-sm text-gray-500 mt-2">
+        <span id="checkInOut"></span>
+        <span id="nightsLabel" class="font-medium text-blue-600"></span>
+      </div>
+    </div>
+
+    <!-- Customer Form -->
+    <div class="bg-white mx-4 mt-4 rounded-2xl shadow p-5">
+      <h3 class="font-semibold text-gray-800 mb-4">ข้อมูลผู้เข้าพัก</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+          <input type="text" id="customer_name" placeholder="กรอกชื่อ-นามสกุล"
+            class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+          <input type="tel" id="customer_phone" placeholder="0812345678"
+            class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+          <textarea id="notes" placeholder="ต้องการเตียงเสริม, วันพิเศษ, ฯลฯ" rows="2"
+            class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coupon -->
+    <div class="bg-white mx-4 mt-4 rounded-2xl shadow p-5">
+      <h3 class="font-semibold text-gray-800 mb-3">คูปองส่วนลด</h3>
+      <div class="flex gap-2">
+        <input type="text" id="coupon_code" placeholder="รหัสคูปอง (ถ้ามี)" maxlength="50"
+          class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm uppercase"/>
+        <button onclick="validateCoupon()" class="bg-gray-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-700">
+          ใช้
+        </button>
+      </div>
+      <div id="couponResult" class="mt-2 text-sm hidden"></div>
+    </div>
+
+    <!-- Price Summary -->
+    <div class="bg-white mx-4 mt-4 rounded-2xl shadow p-5">
+      <h3 class="font-semibold text-gray-800 mb-4">สรุปยอด</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between text-gray-600">
+          <span id="priceLabel">ราคาห้อง</span>
+          <span id="basePrice" class="font-medium">—</span>
+        </div>
+        <div id="discountRow" class="flex justify-between text-green-600 hidden">
+          <span>ส่วนลดคูปอง</span>
+          <span id="discountAmount" class="font-medium">—</span>
+        </div>
+        <div class="border-t border-gray-100 pt-2 mt-2 flex justify-between text-gray-800 font-bold text-lg">
+          <span>รวมทั้งหมด</span>
+          <span id="totalPrice" class="text-blue-600">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Next Button -->
+    <div class="mx-4 mt-5">
+      <button onclick="proceedToPayment()" id="nextBtn"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-lg transition">
+        ดำเนินการชำระเงิน →
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    const params = new URLSearchParams(location.search);
+
+    const roomId = params.get('room_id');
+    const roomName = params.get('room_name');
+    const pricePerNight = parseFloat(params.get('price'));
+    const checkIn = params.get('check_in');
+    const checkOut = params.get('check_out');
+    const userId = params.get('user_id');
+    const nights = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000);
+
+    let discount = 0;
+    let couponCode = '';
+
+    document.getElementById('roomName').textContent = roomName;
+    document.getElementById('checkInOut').textContent = `${checkIn} → ${checkOut}`;
+    document.getElementById('nightsLabel').textContent = `${nights} คืน`;
+    document.getElementById('priceLabel').textContent = `฿${pricePerNight.toLocaleString()} × ${nights} คืน`;
+
+    updatePricing();
+
+    function updatePricing() {
+      const base = pricePerNight * nights;
+      const total = Math.max(0, base - discount);
+      document.getElementById('basePrice').textContent = `฿${base.toLocaleString()}`;
+      document.getElementById('totalPrice').textContent = `฿${total.toLocaleString()}`;
+    }
+
+    async function validateCoupon() {
+      const code = document.getElementById('coupon_code').value.trim().toUpperCase();
+      if (!code) return;
+
+      const base = pricePerNight * nights;
+      const res = await fetch(`${API_BASE}/api/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, order_amount: base }),
+      });
+      const data = await res.json();
+      const resultEl = document.getElementById('couponResult');
+      resultEl.classList.remove('hidden');
+
+      if (data.valid) {
+        discount = data.discount_amount;
+        couponCode = code;
+        resultEl.className = 'mt-2 text-sm text-green-600';
+        resultEl.textContent = `✅ ลดได้ ฿${discount.toLocaleString()}`;
+        document.getElementById('discountRow').classList.remove('hidden');
+        document.getElementById('discountAmount').textContent = `-฿${discount.toLocaleString()}`;
+        updatePricing();
+      } else {
+        discount = 0;
+        couponCode = '';
+        resultEl.className = 'mt-2 text-sm text-red-600';
+        resultEl.textContent = `❌ ${data.message}`;
+        document.getElementById('discountRow').classList.add('hidden');
+        updatePricing();
+      }
+    }
+
+    function proceedToPayment() {
+      const name = document.getElementById('customer_name').value.trim();
+      const phone = document.getElementById('customer_phone').value.trim();
+
+      if (!name) { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
+      if (!phone || phone.length < 9) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return; }
+
+      const base = pricePerNight * nights;
+      const total = Math.max(0, base - discount);
+      const notes = document.getElementById('notes').value;
+
+      const nextParams = new URLSearchParams({
+        room_id: roomId,
+        room_name: roomName,
+        check_in: checkIn,
+        check_out: checkOut,
+        nights,
+        customer_name: name,
+        customer_phone: phone,
+        customer_line_id: userId,
+        coupon_code: couponCode,
+        base_price: base,
+        discount_amount: discount,
+        total_price: total,
+        notes,
+      });
+      window.location.href = `payment.html?${nextParams}`;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>สถานะการจอง</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen pb-10">
+
+  <!-- Header -->
+  <div class="bg-blue-600 text-white px-4 py-4 flex items-center gap-3 sticky top-0 z-10 shadow">
+    <span class="text-2xl">🏨</span>
+    <div class="font-bold text-lg">สถานะการจอง</div>
+  </div>
+
+  <div class="max-w-lg mx-auto px-4 pt-6" id="content">
+    <!-- Loading -->
+    <div id="loading" class="text-center py-16">
+      <div class="text-4xl mb-3">⏳</div>
+      <div class="text-gray-500">กำลังโหลด...</div>
+    </div>
+
+    <!-- Error -->
+    <div id="errorState" class="hidden text-center py-16">
+      <div class="text-4xl mb-3">❌</div>
+      <div class="text-gray-700 font-medium" id="errorMsg">ไม่พบการจอง</div>
+      <a href="/liff/" class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-xl text-sm">จองใหม่</a>
+    </div>
+
+    <!-- Booking card -->
+    <div id="bookingCard" class="hidden space-y-4">
+
+      <!-- Status badge -->
+      <div id="statusBanner" class="rounded-2xl p-5 text-center">
+        <div id="statusIcon" class="text-5xl mb-2"></div>
+        <div id="statusText" class="text-xl font-bold"></div>
+        <div id="statusSub" class="text-sm mt-1 opacity-80"></div>
+      </div>
+
+      <!-- Details -->
+      <div class="bg-white rounded-2xl shadow p-5 space-y-3">
+        <div class="text-xs text-gray-400 uppercase font-semibold">รายละเอียดการจอง</div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">รหัสการจอง</span>
+          <span class="font-bold text-blue-700" id="dRef"></span>
+        </div>
+        <div class="flex justify-between text-sm" id="roomRow">
+          <span class="text-gray-500">ห้อง</span>
+          <span class="font-semibold" id="dRoom"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">ชื่อผู้จอง</span>
+          <span class="font-semibold" id="dName"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">เบอร์โทร</span>
+          <span class="font-semibold" id="dPhone"></span>
+        </div>
+        <hr class="border-gray-100"/>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">เช็คอิน</span>
+          <span class="font-semibold" id="dCheckIn"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">เช็คเอาต์</span>
+          <span class="font-semibold" id="dCheckOut"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">จำนวนคืน</span>
+          <span class="font-semibold" id="dNights"></span>
+        </div>
+        <hr class="border-gray-100"/>
+        <div class="flex justify-between">
+          <span class="font-bold text-gray-800">ยอดที่ต้องชำระ</span>
+          <span class="font-bold text-blue-600 text-lg" id="dTotal"></span>
+        </div>
+        <div id="couponRow" class="flex justify-between text-sm text-green-600 hidden">
+          <span>ส่วนลดคูปอง</span>
+          <span id="dDiscount"></span>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div id="actionArea"></div>
+
+      <!-- My bookings history -->
+      <div id="historySection" class="hidden space-y-3">
+        <div class="text-sm font-semibold text-gray-700">การจองทั้งหมดของคุณ</div>
+        <div id="historyList" class="space-y-3"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const APP_URL = "{{ app_url }}";
+    const LIFF_ID = "{{ liff_id }}";
+
+    const STATUS_CONFIG = {
+      pending:     { icon: '⏳', text: 'รอชำระเงิน',     sub: 'กรุณาชำระเงินเพื่อยืนยันการจอง', bg: 'bg-yellow-50', color: 'text-yellow-700' },
+      confirmed:   { icon: '✅', text: 'ยืนยันแล้ว',      sub: 'การจองได้รับการยืนยัน พบกันที่โรงแรม!', bg: 'bg-green-50', color: 'text-green-700' },
+      checked_in:  { icon: '🏠', text: 'เช็คอินแล้ว',    sub: 'ขอให้เพลิดเพลินกับการพักผ่อน', bg: 'bg-blue-50', color: 'text-blue-700' },
+      checked_out: { icon: '👋', text: 'เช็คเอาต์แล้ว',  sub: 'ขอบคุณที่ใช้บริการ หวังว่าจะพบกันอีก', bg: 'bg-gray-50', color: 'text-gray-700' },
+      cancelled:   { icon: '❌', text: 'ยกเลิกแล้ว',     sub: 'การจองนี้ถูกยกเลิก', bg: 'bg-red-50', color: 'text-red-700' },
+    };
+
+    async function loadBooking() {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      const page = params.get('page');
+
+      if (page === 'history') {
+        await loadHistory();
+        return;
+      }
+
+      if (!ref) {
+        showError('ไม่พบรหัสการจอง');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${APP_URL}/api/bookings/${ref}`);
+        if (!res.ok) {
+          showError('ไม่พบการจองนี้ กรุณาตรวจสอบรหัสการจอง');
+          return;
+        }
+        const booking = await res.json();
+        renderBooking(booking);
+      } catch (e) {
+        showError('เกิดข้อผิดพลาด กรุณาลองใหม่');
+      }
+    }
+
+    async function loadHistory() {
+      document.querySelector('.bg-blue-600 .font-bold').textContent = 'ประวัติการจอง';
+      try {
+        let lineId = null;
+        if (LIFF_ID) {
+          try {
+            await liff.init({ liffId: LIFF_ID });
+            if (liff.isLoggedIn()) {
+              const profile = await liff.getProfile();
+              lineId = profile.userId;
+            }
+          } catch (e) {
+            console.warn('LIFF init:', e.message);
+          }
+        }
+        if (!lineId) {
+          showError('กรุณาเปิดหน้านี้ผ่าน LINE');
+          return;
+        }
+
+        const res = await fetch(`${APP_URL}/api/bookings/customer/${lineId}`);
+        const bookings = await res.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('bookingCard').classList.remove('hidden');
+        document.getElementById('statusBanner').classList.add('hidden');
+        document.getElementById('actionArea').classList.add('hidden');
+
+        const hist = document.getElementById('historySection');
+        hist.classList.remove('hidden');
+
+        if (!bookings.length) {
+          document.getElementById('historyList').innerHTML =
+            '<div class="text-center py-8 text-gray-400">ยังไม่มีประวัติการจอง</div>';
+          return;
+        }
+
+        const STATUS_CONFIG_LOCAL = {
+          pending:     { icon: '⏳', label: 'รอชำระเงิน',   bg: 'bg-yellow-50', color: 'text-yellow-700' },
+          confirmed:   { icon: '✅', label: 'ยืนยันแล้ว',    bg: 'bg-green-50',  color: 'text-green-700' },
+          checked_in:  { icon: '🏠', label: 'เช็คอินแล้ว',  bg: 'bg-blue-50',   color: 'text-blue-700' },
+          checked_out: { icon: '👋', label: 'เช็คเอาต์แล้ว',bg: 'bg-gray-50',   color: 'text-gray-700' },
+          cancelled:   { icon: '❌', label: 'ยกเลิก',        bg: 'bg-red-50',    color: 'text-red-700' },
+        };
+
+        document.getElementById('historyList').innerHTML = bookings.map(b => {
+          const cfg = STATUS_CONFIG_LOCAL[b.status] || STATUS_CONFIG_LOCAL.pending;
+          return `
+            <a href="/liff/confirm?ref=${b.booking_ref}"
+              class="${cfg.bg} rounded-xl p-4 flex items-center justify-between gap-3 block">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">${cfg.icon}</span>
+                <div>
+                  <div class="font-bold text-gray-800 text-sm">${b.booking_ref}</div>
+                  <div class="text-xs text-gray-500">${b.check_in} → ${b.check_out} · ${b.nights} คืน</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-semibold ${cfg.color} text-sm">${cfg.label}</div>
+                <div class="text-xs text-gray-500">฿${Number(b.total_price).toLocaleString()}</div>
+              </div>
+            </a>`;
+        }).join('');
+      } catch (e) {
+        showError('โหลดประวัติไม่สำเร็จ กรุณาลองใหม่');
+      }
+    }
+
+    function renderBooking(b) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('bookingCard').classList.remove('hidden');
+
+      const cfg = STATUS_CONFIG[b.status] || STATUS_CONFIG.pending;
+      const banner = document.getElementById('statusBanner');
+      banner.className = `rounded-2xl p-5 text-center ${cfg.bg}`;
+      document.getElementById('statusIcon').textContent = cfg.icon;
+      document.getElementById('statusText').className = `text-xl font-bold ${cfg.color}`;
+      document.getElementById('statusText').textContent = cfg.text;
+      document.getElementById('statusSub').className = `text-sm mt-1 opacity-80 ${cfg.color}`;
+      document.getElementById('statusSub').textContent = cfg.sub;
+
+      document.getElementById('dRef').textContent = b.booking_ref;
+      if (b.room_name) document.getElementById('dRoom').textContent = b.room_name;
+      else document.getElementById('roomRow').classList.add('hidden');
+      document.getElementById('dName').textContent = b.customer_name;
+      document.getElementById('dPhone').textContent = b.customer_phone;
+      document.getElementById('dCheckIn').textContent = b.check_in;
+      document.getElementById('dCheckOut').textContent = b.check_out;
+      document.getElementById('dNights').textContent = `${b.nights} คืน`;
+      document.getElementById('dTotal').textContent = `฿${Number(b.total_price).toLocaleString()}`;
+
+      if (b.discount_amount > 0) {
+        document.getElementById('couponRow').classList.remove('hidden');
+        document.getElementById('dDiscount').textContent = `-฿${Number(b.discount_amount).toLocaleString()}`;
+      }
+
+      // Action area
+      const actionArea = document.getElementById('actionArea');
+      if (b.status === 'pending') {
+        actionArea.innerHTML = `
+          <a href="/liff/payment?ref=${b.booking_ref}"
+            class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl text-center text-lg transition">
+            💳 อัปโหลดสลิปชำระเงิน
+          </a>
+          <p class="text-xs text-gray-400 text-center mt-2">กรุณาชำระภายใน 24 ชั่วโมง หลังจากนั้นการจองจะถูกยกเลิกอัตโนมัติ</p>`;
+      } else if (b.status === 'confirmed') {
+        actionArea.innerHTML = `
+          <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+            <div class="text-green-700 font-medium">✅ ชำระเงินเรียบร้อย</div>
+            <div class="text-green-600 text-sm mt-1">กรุณาแสดงรหัส <strong>${b.booking_ref}</strong> เมื่อเช็คอิน</div>
+          </div>
+          <a href="/liff/" class="mt-3 block text-center text-blue-600 text-sm">จองห้องเพิ่มเติม</a>`;
+      } else if (b.status === 'checked_out') {
+        actionArea.innerHTML = `
+          <a href="/liff/" class="block w-full bg-blue-600 text-white font-semibold py-3 rounded-xl text-center transition">
+            จองห้องอีกครั้ง
+          </a>`;
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('errorMsg').textContent = msg;
+      document.getElementById('errorState').classList.remove('hidden');
+    }
+
+    loadBooking();
+  </script>
+</body>
+</html>

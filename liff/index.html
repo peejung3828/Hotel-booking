@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>เลือกห้องพัก</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    .room-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
+    .room-card { transition: all 0.2s ease; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-lg mx-auto pb-8">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-700 to-blue-500 text-white px-5 pt-10 pb-6">
+      <h1 class="text-2xl font-bold">🏨 จองห้องพัก</h1>
+      <p class="text-blue-100 text-sm mt-1">ขั้นตอนที่ 1 จาก 4: เลือกห้อง</p>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="bg-white shadow-sm px-5 py-4 border-b border-gray-100">
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600 block mb-1">เช็คอิน</label>
+          <input type="date" id="check_in" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 block mb-1">เช็คเอาต์</label>
+          <input type="date" id="check_out" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+      </div>
+      <div class="flex gap-3 items-end">
+        <div class="flex-1">
+          <label class="text-xs font-medium text-gray-600 block mb-1">จำนวนผู้เข้าพัก</label>
+          <select id="guests" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none">
+            <option value="1">1 คน</option>
+            <option value="2" selected>2 คน</option>
+            <option value="3">3 คน</option>
+            <option value="4">4 คน</option>
+          </select>
+        </div>
+        <button onclick="searchRooms()" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+          ค้นหา
+        </button>
+      </div>
+    </div>
+
+    <!-- Room List -->
+    <div id="roomList" class="px-4 pt-4 space-y-4">
+      <div class="text-center text-gray-400 py-8">กรอกวันที่แล้วกดค้นหาห้องว่าง</div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden text-center py-8">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <p class="text-gray-500 text-sm mt-2">กำลังค้นหาห้องว่าง...</p>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let userId = '';
+    let selectedDates = {};
+
+    // Set default dates
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date(today);
+    dayAfter.setDate(dayAfter.getDate() + 2);
+
+    document.getElementById('check_in').value = tomorrow.toISOString().split('T')[0];
+    document.getElementById('check_out').value = dayAfter.toISOString().split('T')[0];
+    document.getElementById('check_in').min = today.toISOString().split('T')[0];
+
+    document.getElementById('check_in').addEventListener('change', function() {
+      const nextDay = new Date(this.value);
+      nextDay.setDate(nextDay.getDate() + 1);
+      document.getElementById('check_out').min = nextDay.toISOString().split('T')[0];
+      if (document.getElementById('check_out').value <= this.value) {
+        document.getElementById('check_out').value = nextDay.toISOString().split('T')[0];
+      }
+    });
+
+    async function initLiff() {
+      try {
+        await liff.init({ liffId: '{{LIFF_ID}}' });
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          userId = profile.userId;
+        } else {
+          liff.login();
+        }
+      } catch (e) {
+        console.error('LIFF init error', e);
+        // For dev: use dummy userId
+        userId = 'dev_user_' + Math.random().toString(36).substr(2, 9);
+      }
+    }
+
+    async function searchRooms() {
+      const check_in = document.getElementById('check_in').value;
+      const check_out = document.getElementById('check_out').value;
+      const guests = document.getElementById('guests').value;
+
+      if (!check_in || !check_out) {
+        alert('กรุณาเลือกวันที่เช็คอินและเช็คเอาต์');
+        return;
+      }
+
+      selectedDates = { check_in, check_out, guests };
+
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('roomList').classList.add('hidden');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/rooms/available?check_in=${check_in}&check_out=${check_out}&guests=${guests}`);
+        const rooms = await res.json();
+        renderRooms(rooms, check_in, check_out);
+      } catch (e) {
+        document.getElementById('roomList').innerHTML = '<div class="text-center text-red-500 py-8">เกิดข้อผิดพลาด กรุณาลองใหม่</div>';
+      } finally {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('roomList').classList.remove('hidden');
+      }
+    }
+
+    function renderRooms(rooms, check_in, check_out) {
+      const nights = Math.round((new Date(check_out) - new Date(check_in)) / 86400000);
+      const list = document.getElementById('roomList');
+
+      if (rooms.length === 0) {
+        list.innerHTML = '<div class="text-center text-gray-400 py-8">ไม่มีห้องว่างในช่วงวันที่เลือก</div>';
+        return;
+      }
+
+      list.innerHTML = rooms.map(room => {
+        const cover = room.images?.find(i => i.is_cover)?.url || 'https://via.placeholder.com/400x200?text=No+Image';
+        const amenities = room.amenities?.list?.slice(0, 4) || [];
+        return `
+          <div class="room-card bg-white rounded-2xl shadow overflow-hidden cursor-pointer" onclick="selectRoom('${room.id}', '${room.name}', ${room.price_per_night})">
+            <div class="relative">
+              <img src="${cover}" alt="${room.name}" class="w-full h-44 object-cover"/>
+              <div class="absolute top-3 right-3 bg-white rounded-full px-3 py-1 text-xs font-semibold text-blue-700 shadow">
+                ${room.type.charAt(0).toUpperCase() + room.type.slice(1)}
+              </div>
+            </div>
+            <div class="p-4">
+              <h3 class="font-bold text-gray-800 text-lg">${room.name}</h3>
+              <p class="text-gray-500 text-sm mt-1 line-clamp-2">${room.description || ''}</p>
+              <div class="flex flex-wrap gap-1.5 mt-3">
+                ${amenities.map(a => `<span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">${a}</span>`).join('')}
+              </div>
+              <div class="flex items-center justify-between mt-4">
+                <div>
+                  <span class="text-2xl font-bold text-blue-600">฿${Number(room.price_per_night).toLocaleString()}</span>
+                  <span class="text-gray-400 text-sm">/คืน</span>
+                  <div class="text-sm text-gray-500">รวม ${nights} คืน = ฿${(room.price_per_night * nights).toLocaleString()}</div>
+                </div>
+                <button class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">
+                  เลือก
+                </button>
+              </div>
+              <div class="text-xs text-gray-400 mt-2">👥 รองรับสูงสุด ${room.max_guests} คน</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectRoom(roomId, roomName, price) {
+      const { check_in, check_out, guests } = selectedDates;
+      const params = new URLSearchParams({ room_id: roomId, room_name: roomName, price, check_in, check_out, guests, user_id: userId });
+      window.location.href = `details.html?${params}`;
+    }
+
+    initLiff();
+  </script>
+</body>
+</html>

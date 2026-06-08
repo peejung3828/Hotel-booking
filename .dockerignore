@@ -1,0 +1,15 @@
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv
+*.egg-info
+.pytest_cache
+alembic/versions/*.pyc
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep

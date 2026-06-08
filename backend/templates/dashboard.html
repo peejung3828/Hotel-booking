@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Hotel CMS{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+  <div class="bg-white rounded-xl shadow p-6 flex items-center gap-4">
+    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-xl">💰</div>
+    <div>
+      <p class="text-sm text-gray-500">รายได้วันนี้</p>
+      <p class="text-2xl font-bold text-gray-800">฿{{ "{:,.0f}".format(revenue_today) }}</p>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-6 flex items-center gap-4">
+    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xl">📅</div>
+    <div>
+      <p class="text-sm text-gray-500">จองวันนี้</p>
+      <p class="text-2xl font-bold text-gray-800">{{ bookings_today }}</p>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-6 flex items-center gap-4">
+    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 text-xl">🏠</div>
+    <div>
+      <p class="text-sm text-gray-500">เช็คอินวันนี้</p>
+      <p class="text-2xl font-bold text-gray-800">{{ checkins_today }}</p>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-6 flex items-center gap-4">
+    <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 text-xl">🛏</div>
+    <div>
+      <p class="text-sm text-gray-500">ห้องว่าง</p>
+      <p class="text-2xl font-bold text-gray-800">{{ available_rooms }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Bookings -->
+<div class="bg-white rounded-xl shadow">
+  <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="font-semibold text-gray-800">การจองล่าสุด</h3>
+    <a href="/cms/bookings" class="text-blue-600 text-sm hover:underline">ดูทั้งหมด →</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">รหัสการจอง</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">ชื่อลูกค้า</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">เช็คอิน</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">เช็คเอาต์</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">ยอดรวม</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for booking in recent_bookings %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 font-mono font-semibold text-blue-600">{{ booking.booking_ref }}</td>
+          <td class="px-6 py-4">{{ booking.customer_name }}</td>
+          <td class="px-6 py-4">{{ booking.check_in }}</td>
+          <td class="px-6 py-4">{{ booking.check_out }}</td>
+          <td class="px-6 py-4 font-semibold">฿{{ "{:,.0f}".format(booking.total_price) }}</td>
+          <td class="px-6 py-4">
+            {% set status_colors = {
+              'pending': 'bg-yellow-100 text-yellow-700',
+              'confirmed': 'bg-green-100 text-green-700',
+              'checked_in': 'bg-blue-100 text-blue-700',
+              'checked_out': 'bg-gray-100 text-gray-700',
+              'cancelled': 'bg-red-100 text-red-700'
+            } %}
+            <span class="px-2 py-1 rounded-full text-xs font-medium {{ status_colors.get(booking.status, 'bg-gray-100') }}">
+              {{ booking.status }}
+            </span>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="px-6 py-8 text-center text-gray-400">ยังไม่มีการจอง</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

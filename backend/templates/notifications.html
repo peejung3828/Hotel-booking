@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}การแจ้งเตือน - Hotel CMS{% endblock %}
+{% block page_title %}ระบบการแจ้งเตือน{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Scheduled Jobs -->
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-xl shadow">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">⏰ Scheduled Jobs</h3>
+        <p class="text-sm text-gray-400 mt-0.5">งานที่รันอัตโนมัติตามเวลา</p>
+      </div>
+      <div class="divide-y divide-gray-50">
+
+        {% set jobs = [
+          {
+            'id': 'daily_summary',
+            'name': 'Daily Summary',
+            'icon': '📊',
+            'desc': 'ส่งรายงานประจำวันไปหา Super Admin ทุก 09:00 น.',
+            'schedule': 'ทุกวัน 09:00 (Asia/Bangkok)',
+            'trigger': 'cron',
+            'color': 'purple'
+          },
+          {
+            'id': 'checkin_reminder',
+            'name': 'Check-in Reminder',
+            'icon': '⏰',
+            'desc': 'ส่งแจ้งเตือนการเช็คอินล่วงหน้า 24 ชั่วโมง',
+            'schedule': 'ทุก 1 ชั่วโมง',
+            'trigger': 'interval',
+            'color': 'blue'
+          },
+          {
+            'id': 'payment_timeout',
+            'name': 'Payment Timeout',
+            'icon': '💳',
+            'desc': 'ยกเลิกการจองที่ค้างชำระนานเกิน 30 นาที',
+            'schedule': 'ทุก 5 นาที',
+            'trigger': 'interval',
+            'color': 'red'
+          },
+          {
+            'id': 'checkout_review',
+            'name': 'Checkout Review Request',
+            'icon': '⭐',
+            'desc': 'ส่งคำขอรีวิวหลังจาก check-out',
+            'schedule': 'ทุก 30 นาที',
+            'trigger': 'interval',
+            'color': 'yellow'
+          }
+        ] %}
+
+        {% for job in jobs %}
+        <div class="px-6 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl
+                        {% if job.color == 'purple' %}bg-purple-100{% elif job.color == 'blue' %}bg-blue-100{% elif job.color == 'red' %}bg-red-100{% else %}bg-yellow-100{% endif %}
+                        flex items-center justify-center text-2xl">
+              {{ job.icon }}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <p class="font-semibold text-gray-800">{{ job.name }}</p>
+                <span class="text-xs px-2 py-0.5 rounded-full font-mono
+                             {% if job.trigger == 'cron' %}bg-purple-100 text-purple-600{% else %}bg-gray-100 text-gray-500{% endif %}">
+                  {{ job.trigger }}
+                </span>
+                <span id="status-{{ job.id }}" class="w-2 h-2 rounded-full bg-green-400 inline-block" title="running"></span>
+              </div>
+              <p class="text-sm text-gray-500 mt-0.5">{{ job.desc }}</p>
+              <p class="text-xs text-gray-400 mt-0.5">🕐 {{ job.schedule }}</p>
+            </div>
+          </div>
+          <button onclick="triggerJob('{{ job.id }}')" id="btn-{{ job.id }}"
+            class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition">
+            ▶ Run Now
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- LINE Notification Settings -->
+  <div>
+    <div class="bg-white rounded-xl shadow p-6">
+      <h3 class="font-semibold text-gray-800 mb-4">📱 ตั้งค่า LINE Notification</h3>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between items-center py-2 border-b border-gray-50">
+          <span class="text-gray-600">แจ้งเมื่อมีจองใหม่</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-green-500 rounded-full peer transition-colors"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+          </label>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-gray-50">
+          <span class="text-gray-600">แจ้งเมื่อมีการชำระเงิน</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-green-500 rounded-full peer transition-colors"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+          </label>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-gray-50">
+          <span class="text-gray-600">Daily summary (Super Admin)</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-green-500 rounded-full peer transition-colors"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+          </label>
+        </div>
+        <div class="flex justify-between items-center py-2">
+          <span class="text-gray-600">Check-in reminder ลูกค้า</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-green-500 rounded-full peer transition-colors"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Run Log -->
+  <div>
+    <div class="bg-white rounded-xl shadow p-6">
+      <h3 class="font-semibold text-gray-800 mb-4">📋 Job Run Log</h3>
+      <div id="runLog" class="space-y-2 text-sm max-h-64 overflow-y-auto">
+        <p class="text-gray-400 text-center py-4">กด "Run Now" เพื่อทดสอบ job</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const log = document.getElementById('runLog');
+
+  function appendLog(job, success, msg) {
+    const time = new Date().toLocaleTimeString('th-TH');
+    const div = document.createElement('div');
+    div.className = `flex items-start gap-2 py-1.5 border-b border-gray-50`;
+    div.innerHTML = `
+      <span class="${success ? 'text-green-500' : 'text-red-500'}">${success ? '✅' : '❌'}</span>
+      <div class="flex-1">
+        <span class="font-medium text-gray-700">${job}</span>
+        <span class="text-gray-400 text-xs ml-2">${time}</span>
+        <div class="text-gray-500 text-xs mt-0.5">${msg}</div>
+      </div>
+    `;
+    if (log.querySelector('p')) log.innerHTML = '';
+    log.prepend(div);
+  }
+
+  async function triggerJob(jobId) {
+    const btn = document.getElementById(`btn-${jobId}`);
+    btn.disabled = true;
+    btn.textContent = '⏳ Running...';
+
+    try {
+      const res = await apiFetch(`/api/notifications/trigger/${jobId}`, { method: 'POST' });
+      if (res && res.ok) {
+        const data = await res.json();
+        appendLog(jobId, true, data.message || 'สำเร็จ');
+        btn.textContent = '✅ Done';
+        setTimeout(() => { btn.textContent = '▶ Run Now'; btn.disabled = false; }, 2000);
+      } else {
+        const err = res ? await res.json() : {};
+        appendLog(jobId, false, err.detail || 'เกิดข้อผิดพลาด');
+        btn.textContent = '❌ Failed';
+        setTimeout(() => { btn.textContent = '▶ Run Now'; btn.disabled = false; }, 2000);
+      }
+    } catch (e) {
+      appendLog(jobId, false, e.message);
+      btn.textContent = '▶ Run Now';
+      btn.disabled = false;
+    }
+  }
+</script>
+{% endblock %}
