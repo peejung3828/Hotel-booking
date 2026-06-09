@@ -244,6 +244,17 @@
         }
 
         renderRooms(rooms);
+
+        // Auto-select pre-linked room if still available
+        if (window._preselectedRoom) {
+          const match = rooms.find(r => r.id === window._preselectedRoom.id);
+          if (match) {
+            selectedRoom = match;
+            goStep(3);
+            return;
+          }
+        }
+
         goStep(2);
       } catch (e) {
         errEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
@@ -420,6 +431,24 @@
 
     setToday();
     initLiff();
+
+    // If ?room_id= is in URL, pre-fetch and skip to date selection with that room queued
+    (async () => {
+      const roomId = new URLSearchParams(window.location.search).get('room_id');
+      if (!roomId) return;
+      try {
+        const res = await fetch(`${APP_URL}/api/rooms/${roomId}`);
+        if (!res.ok) return;
+        const room = await res.json();
+        // Auto-select and skip to step 3 after dates are confirmed
+        window._preselectedRoom = room;
+        // Show banner so user knows which room was linked
+        const banner = document.createElement('div');
+        banner.className = 'bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 text-sm text-blue-800';
+        banner.innerHTML = `เลือกห้อง <strong>${room.name}</strong> — กรอกวันที่แล้วกดค้นหาเพื่อยืนยัน`;
+        document.getElementById('step1').prepend(banner);
+      } catch (e) { /* ignore */ }
+    })();
   </script>
 </body>
 </html>
