@@ -191,6 +191,16 @@ async def bookings_list(
     })
 
 
+@router.get("/bookings/create", response_class=HTMLResponse)
+async def booking_create_page(
+    request: Request,
+    user: AdminUser = Depends(cms_auth),
+):
+    return templates.TemplateResponse(request, "bookings/create.html", {
+        "user": user,
+    })
+
+
 @router.get("/calendar", response_class=HTMLResponse)
 async def calendar_page(
     request: Request,

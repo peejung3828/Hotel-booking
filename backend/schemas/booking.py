@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class BookingCreate(BaseModel):
     room_id: uuid.UUID
-    customer_line_id: str
+    customer_line_id: str | None = None
     customer_name: str = Field(..., min_length=1, max_length=200)
     customer_phone: str = Field(..., min_length=9, max_length=20)
     check_in: date
@@ -18,7 +18,7 @@ class BookingOut(BaseModel):
     id: uuid.UUID
     booking_ref: str
     room_id: uuid.UUID
-    customer_line_id: str
+    customer_line_id: str | None
     customer_name: str
     customer_phone: str
     check_in: date

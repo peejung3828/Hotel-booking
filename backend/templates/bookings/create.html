@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}Admin จอง - Hotel CMS{% endblock %}
+{% block page_title %}Admin จอง (Walk-in){% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Back link -->
+  <a href="/cms/bookings" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6">
+    ← กลับรายการจอง
+  </a>
+
+  <div class="bg-white rounded-2xl shadow p-8">
+    <div class="flex items-center gap-3 mb-6 pb-5 border-b border-gray-100">
+      <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl">🏨</div>
+      <div>
+        <h2 class="font-bold text-gray-800 text-lg">สร้างการจองโดย Admin</h2>
+        <p class="text-sm text-gray-400">สำหรับลูกค้า walk-in ที่ไม่มี LINE</p>
+      </div>
+    </div>
+
+    <!-- Alert -->
+    <div id="alertBox" class="hidden mb-5 px-4 py-3 rounded-lg text-sm font-medium"></div>
+
+    <form id="adminBookingForm" class="space-y-6">
+
+      <!-- Step 1: Date selection -->
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">วันที่เข้าพัก</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">วันเช็คอิน <span class="text-red-500">*</span></label>
+            <input type="date" id="check_in" name="check_in" required
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">วันเช็คเอาต์ <span class="text-red-500">*</span></label>
+            <input type="date" id="check_out" name="check_out" required
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+          </div>
+        </div>
+        <button type="button" id="searchRoomsBtn" onclick="searchRooms()"
+          class="mt-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition">
+          ค้นหาห้องว่าง
+        </button>
+      </div>
+
+      <!-- Step 2: Room selection -->
+      <div id="roomSection" class="hidden">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">เลือกห้องพัก</h3>
+        <div id="roomList" class="grid grid-cols-1 gap-3"></div>
+        <input type="hidden" id="room_id" name="room_id"/>
+        <div id="pricePreview" class="hidden mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 font-medium"></div>
+      </div>
+
+      <!-- Step 3: Customer info -->
+      <div id="customerSection" class="hidden">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">ข้อมูลลูกค้า</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-sm text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+            <input type="text" id="customer_name" name="customer_name" required
+              placeholder="เช่น สมชาย ใจดี"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+            <input type="tel" id="customer_phone" name="customer_phone" required
+              placeholder="0812345678"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">LINE User ID <span class="text-gray-400 text-xs">(ถ้ามี)</span></label>
+            <input type="text" id="customer_line_id" name="customer_line_id"
+              placeholder="U..."
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"/>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-sm text-gray-600 mb-1">คูปองส่วนลด <span class="text-gray-400 text-xs">(ถ้ามี)</span></label>
+            <input type="text" id="coupon_code" name="coupon_code"
+              placeholder="รหัสคูปอง"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm uppercase"/>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-sm text-gray-600 mb-1">หมายเหตุ</label>
+            <textarea id="notes" name="notes" rows="2"
+              placeholder="เช่น ต้องการเตียงเสริม, อาหารมังสวิรัต..."
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Auto confirm -->
+        <label class="flex items-center gap-3 mt-4 p-3 bg-green-50 rounded-lg cursor-pointer">
+          <input type="checkbox" id="auto_confirm" checked
+            class="w-4 h-4 rounded accent-green-600"/>
+          <div>
+            <div class="text-sm font-medium text-green-800">ยืนยันการจองทันที</div>
+            <div class="text-xs text-green-600">ข้ามขั้นตอนรอยืนยัน — เหมาะสำหรับ walk-in ที่ชำระเงินแล้ว</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Submit -->
+      <div id="submitSection" class="hidden pt-2 border-t border-gray-100">
+        <div id="summaryBox" class="mb-4 p-4 bg-gray-50 rounded-xl text-sm space-y-1.5"></div>
+        <button type="submit" id="submitBtn"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition text-base">
+          สร้างการจอง
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedRoom = null;
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('check_in').min = today;
+  document.getElementById('check_out').min = today;
+
+  document.getElementById('check_in').addEventListener('change', () => {
+    const ci = document.getElementById('check_in').value;
+    if (ci) {
+      const next = new Date(ci);
+      next.setDate(next.getDate() + 1);
+      document.getElementById('check_out').min = next.toISOString().split('T')[0];
+      if (document.getElementById('check_out').value <= ci) {
+        document.getElementById('check_out').value = next.toISOString().split('T')[0];
+      }
+    }
+    resetRoomSelection();
+  });
+
+  document.getElementById('check_out').addEventListener('change', resetRoomSelection);
+
+  function resetRoomSelection() {
+    selectedRoom = null;
+    document.getElementById('room_id').value = '';
+    document.getElementById('roomSection').classList.add('hidden');
+    document.getElementById('customerSection').classList.add('hidden');
+    document.getElementById('submitSection').classList.add('hidden');
+    document.getElementById('pricePreview').classList.add('hidden');
+  }
+
+  async function searchRooms() {
+    const ci = document.getElementById('check_in').value;
+    const co = document.getElementById('check_out').value;
+    if (!ci || !co) { showAlert('error', 'กรุณาเลือกวันเช็คอินและเช็คเอาต์'); return; }
+    if (co <= ci) { showAlert('error', 'วันเช็คเอาต์ต้องหลังวันเช็คอิน'); return; }
+
+    const btn = document.getElementById('searchRoomsBtn');
+    btn.textContent = 'กำลังค้นหา...';
+    btn.disabled = true;
+
+    try {
+      const res = await apiFetch(`/api/rooms/available?check_in=${ci}&check_out=${co}`);
+      if (!res || !res.ok) { showAlert('error', 'โหลดห้องว่างไม่สำเร็จ'); return; }
+      const rooms = await res.json();
+      renderRooms(rooms, ci, co);
+    } finally {
+      btn.textContent = 'ค้นหาห้องว่าง';
+      btn.disabled = false;
+    }
+  }
+
+  function renderRooms(rooms, ci, co) {
+    const container = document.getElementById('roomList');
+    document.getElementById('roomSection').classList.remove('hidden');
+
+    if (!rooms.length) {
+      container.innerHTML = '<div class="text-center py-8 text-gray-400">ไม่มีห้องว่างในช่วงวันที่เลือก</div>';
+      return;
+    }
+
+    const nights = Math.ceil((new Date(co) - new Date(ci)) / 86400000);
+
+    container.innerHTML = rooms.map(r => `
+      <div class="room-card border-2 border-gray-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 transition"
+           data-id="${r.id}" data-name="${r.name}" data-price="${r.price_per_night}" onclick="selectRoom(this, '${r.id}', '${r.name}', ${r.price_per_night}, ${nights})">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-gray-800">${r.name}</div>
+            <div class="text-sm text-gray-500 mt-0.5">${r.room_type || ''} · ชั้น ${r.floor || '—'}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-bold text-blue-600">฿${Number(r.price_per_night).toLocaleString()}</div>
+            <div class="text-xs text-gray-400">/ คืน</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function selectRoom(el, id, name, pricePerNight, nights) {
+    document.querySelectorAll('.room-card').forEach(c => {
+      c.classList.remove('border-blue-600', 'bg-blue-50');
+      c.classList.add('border-gray-200');
+    });
+    el.classList.remove('border-gray-200');
+    el.classList.add('border-blue-600', 'bg-blue-50');
+
+    selectedRoom = { id, name, pricePerNight, nights };
+    document.getElementById('room_id').value = id;
+
+    const total = pricePerNight * nights;
+    const preview = document.getElementById('pricePreview');
+    preview.textContent = `${name} · ${nights} คืน × ฿${Number(pricePerNight).toLocaleString()} = ฿${Number(total).toLocaleString()}`;
+    preview.classList.remove('hidden');
+
+    document.getElementById('customerSection').classList.remove('hidden');
+    document.getElementById('submitSection').classList.remove('hidden');
+    updateSummary();
+  }
+
+  document.getElementById('customer_name').addEventListener('input', updateSummary);
+  document.getElementById('customer_phone').addEventListener('input', updateSummary);
+
+  function updateSummary() {
+    if (!selectedRoom) return;
+    const name = document.getElementById('customer_name').value || '—';
+    const phone = document.getElementById('customer_phone').value || '—';
+    const ci = document.getElementById('check_in').value;
+    const co = document.getElementById('check_out').value;
+    const total = selectedRoom.pricePerNight * selectedRoom.nights;
+    document.getElementById('summaryBox').innerHTML = `
+      <div class="font-semibold text-gray-700 mb-2">สรุปการจอง</div>
+      <div class="flex justify-between"><span class="text-gray-500">ห้อง</span><span class="font-medium">${selectedRoom.name}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">วันที่</span><span>${ci} → ${co} (${selectedRoom.nights} คืน)</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">ลูกค้า</span><span>${name}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">เบอร์</span><span>${phone}</span></div>
+      <div class="flex justify-between font-bold pt-1.5 border-t border-gray-200 mt-1.5"><span>ยอดรวม</span><span class="text-blue-700">฿${Number(total).toLocaleString()}</span></div>
+    `;
+  }
+
+  document.getElementById('adminBookingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const roomId = document.getElementById('room_id').value;
+    if (!roomId) { showAlert('error', 'กรุณาเลือกห้องพัก'); return; }
+
+    const name = document.getElementById('customer_name').value.trim();
+    const phone = document.getElementById('customer_phone').value.trim();
+    if (!name || !phone) { showAlert('error', 'กรุณากรอกชื่อและเบอร์โทรลูกค้า'); return; }
+
+    const payload = {
+      room_id: roomId,
+      customer_name: name,
+      customer_phone: phone,
+      customer_line_id: document.getElementById('customer_line_id').value.trim() || null,
+      check_in: document.getElementById('check_in').value,
+      check_out: document.getElementById('check_out').value,
+      coupon_code: document.getElementById('coupon_code').value.trim().toUpperCase() || null,
+      notes: document.getElementById('notes').value.trim() || null,
+    };
+
+    const btn = document.getElementById('submitBtn');
+    btn.textContent = 'กำลังสร้างการจอง...';
+    btn.disabled = true;
+
+    try {
+      const res = await apiFetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res || !res.ok) {
+        const err = res ? await res.json() : {};
+        showAlert('error', err.detail || 'สร้างการจองไม่สำเร็จ');
+        return;
+      }
+
+      const booking = await res.json();
+      const ref = booking.booking_ref;
+
+      // Auto-confirm if checked
+      if (document.getElementById('auto_confirm').checked) {
+        await apiFetch(`/api/bookings/${ref}/confirm`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+      }
+
+      showAlert('success', `สร้างการจอง ${ref} สำเร็จแล้ว กำลังไปหน้ารายการจอง...`);
+      setTimeout(() => { window.location.href = '/cms/bookings'; }, 1500);
+
+    } finally {
+      btn.textContent = 'สร้างการจอง';
+      btn.disabled = false;
+    }
+  });
+
+  function showAlert(type, msg) {
+    const el = document.getElementById('alertBox');
+    el.className = `mb-5 px-4 py-3 rounded-lg text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    if (type === 'success') return;
+    setTimeout(() => el.classList.add('hidden'), 4000);
+  }
+</script>
+{% endblock %}
