@@ -2,6 +2,8 @@ import io
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from PIL import Image, ImageDraw, ImageFont
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from linebot.v3.messaging import (
     AsyncApiClient, AsyncMessagingApi, AsyncMessagingApiBlob, Configuration,
@@ -12,6 +14,8 @@ from linebot.v3.messaging.models import (
 )
 
 from backend.config import settings
+from backend.database import get_db
+from backend.models.user import AdminUser
 from backend.routers.auth import require_admin
 
 router = APIRouter()
@@ -135,6 +139,7 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
 async def deploy_rich_menu(
     body: DeployRequest,
     _=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
 ):
     if not settings.LINE_CHANNEL_ACCESS_TOKEN or settings.LINE_CHANNEL_ACCESS_TOKEN == "your_line_channel_access_token":
         raise HTTPException(status_code=400, detail="LINE_CHANNEL_ACCESS_TOKEN not configured")
@@ -142,9 +147,29 @@ async def deploy_rich_menu(
     if not body.buttons:
         raise HTTPException(status_code=422, detail="At least one button required")
 
+    is_admin_menu = body.tab in ("admin", "super_admin")
+
+    # For admin/super_admin menus, we need LINE IDs to link to
+    admin_line_ids: list[str] = []
+    if is_admin_menu:
+        result = await db.execute(
+            select(AdminUser.line_id).where(
+                AdminUser.is_active == True,
+                AdminUser.line_id.isnot(None),
+                AdminUser.role == body.tab if body.tab == "super_admin" else AdminUser.role.in_(["admin", "super_admin"]),
+            )
+        )
+        admin_line_ids = [row[0] for row in result.all() if row[0]]
+        if not admin_line_ids:
+            raise HTTPException(
+                status_code=422,
+                detail="ไม่พบ Admin ที่มี LINE ID — ตั้งค่า LINE ID ใน Admin Users ก่อน",
+            )
+
     buttons = body.buttons[:6]
     configuration = Configuration(access_token=settings.LINE_CHANNEL_ACCESS_TOKEN)
 
+    rich_menu_id: str = ""
     try:
         async with AsyncApiClient(configuration) as api_client:
             messaging_api = AsyncMessagingApi(api_client)
@@ -157,7 +182,7 @@ async def deploy_rich_menu(
                 size=RichMenuSize(width=CANVAS_W, height=CANVAS_H),
                 selected=True,
                 name=name,
-                chat_bar_text="เมนู",
+                chat_bar_text="เมนู Admin" if is_admin_menu else "เมนู",
                 areas=_build_areas(buttons),
             )
             result = await messaging_api.create_rich_menu(rich_menu)
@@ -171,12 +196,28 @@ async def deploy_rich_menu(
                 _headers={"Content-Type": "image/jpeg"},
             )
 
-            # 3. Set as default
-            await messaging_api.set_default_rich_menu(rich_menu_id)
+            if is_admin_menu:
+                # 3a. Link to each admin's LINE account individually
+                for line_id in admin_line_ids:
+                    try:
+                        await messaging_api.link_rich_menu_id_to_user(
+                            user_id=line_id,
+                            rich_menu_id=rich_menu_id,
+                        )
+                    except Exception:
+                        pass  # skip invalid/blocked LINE IDs silently
+            else:
+                # 3b. Set as default for all users (customer menu)
+                await messaging_api.set_default_rich_menu(rich_menu_id)
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LINE API error: {str(e)}")
 
-    return {"rich_menu_id": rich_menu_id, "name": name, "buttons": n}
+    return {
+        "rich_menu_id": rich_menu_id,
+        "name": name,
+        "buttons": n,
+        "linked_users": len(admin_line_ids) if is_admin_menu else None,
+    }

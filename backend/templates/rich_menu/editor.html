@@ -40,6 +40,9 @@
       </div>
     </div>
 
+    <!-- Deploy info note -->
+    <div id="deployNote" class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700"></div>
+
     <!-- Deploy -->
     <div class="flex gap-3">
       <button onclick="deployRichMenu()"
@@ -88,18 +91,30 @@
       { label: 'ติดต่อ', icon: '💬', action: 'message', value: 'ติดต่อเรา' },
     ],
     admin: [
+      { label: 'Admin จอง', icon: '✍️', action: 'uri', value: '/cms/bookings/create' },
       { label: 'เช็คอินวันนี้', icon: '🏠', action: 'message', value: 'เช็คอินวันนี้' },
-      { label: 'จัดการ', icon: '⚙️', action: 'uri', value: '/cms/dashboard' },
-      { label: 'แจ้งเตือน', icon: '🔔', action: 'message', value: 'การแจ้งเตือน' },
+      { label: 'รายการจอง', icon: '📋', action: 'uri', value: '/cms/bookings' },
+      { label: 'Dashboard', icon: '📊', action: 'uri', value: '/cms/dashboard' },
     ],
     super_admin: [
+      { label: 'Admin จอง', icon: '✍️', action: 'uri', value: '/cms/bookings/create' },
+      { label: 'เช็คอินวันนี้', icon: '🏠', action: 'message', value: 'เช็คอินวันนี้' },
+      { label: 'รายการจอง', icon: '📋', action: 'uri', value: '/cms/bookings' },
       { label: 'Dashboard', icon: '📊', action: 'uri', value: '/cms/dashboard' },
-      { label: 'รายงาน', icon: '📈', action: 'message', value: 'รายงาน' },
+      { label: 'รายงาน', icon: '📈', action: 'uri', value: '/cms/reports' },
       { label: 'ตั้งค่า', icon: '⚙️', action: 'uri', value: '/cms/settings' },
     ],
   };
 
   const configs = JSON.parse(JSON.stringify(defaultButtons));
+
+  const deployNotes = {
+    customer: '📢 <b>Customer Menu</b> — ตั้งเป็น Default Rich Menu สำหรับลูกค้าทุกคนที่ยังไม่มี menu เฉพาะ',
+    admin: '🔒 <b>Admin Menu</b> — ผูกกับ LINE ID ของ Admin ทุกคน (ต้องตั้ง LINE ID ใน Admin Users ก่อน) ปุ่มเปิด CMS ใน LINE browser',
+    super_admin: '⭐ <b>Super Admin Menu</b> — ผูกเฉพาะกับ Super Admin (ต้องตั้ง LINE ID ใน Admin Users ก่อน)',
+  };
+
+  const defaultLayouts = { customer: 3, admin: 4, super_admin: 6 };
 
   function selectTab(tab) {
     currentTab = tab;
@@ -110,8 +125,10 @@
     const el = document.getElementById(`tab-${tab}`);
     el.classList.add('bg-blue-600', 'text-white');
     el.classList.remove('text-gray-600', 'hover:bg-gray-100');
-    renderButtonConfigs();
-    renderPreview();
+    document.getElementById('deployNote').innerHTML = deployNotes[tab] || '';
+
+    // Switch layout to match tab default
+    selectLayout(defaultLayouts[tab] || 3);
   }
 
   function selectLayout(n) {
@@ -188,13 +205,32 @@
   }
 
   async function deployRichMenu() {
-    const res = await apiFetch('/api/line/rich-menu/deploy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tab: currentTab, buttons: configs[currentTab].slice(0, currentLayout) }),
-    });
-    if (res && res.ok) { alert('✅ Deploy สำเร็จ!'); }
-    else { alert('❌ Deploy ล้มเหลว (ตรวจสอบ LINE credentials)'); }
+    const btn = document.querySelector('button[onclick="deployRichMenu()"]');
+    btn.textContent = '⏳ กำลัง Deploy...';
+    btn.disabled = true;
+
+    try {
+      const res = await apiFetch('/api/line/rich-menu/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tab: currentTab, buttons: configs[currentTab].slice(0, currentLayout) }),
+      });
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.linked_users != null) {
+          alert(`✅ Deploy สำเร็จ!\nผูก Rich Menu กับ Admin ${data.linked_users} คนแล้ว\nID: ${data.rich_menu_id}`);
+        } else {
+          alert(`✅ Deploy สำเร็จ!\nตั้งเป็น Default Rich Menu แล้ว\nID: ${data.rich_menu_id}`);
+        }
+      } else {
+        const err = res ? await res.json() : {};
+        alert(`❌ Deploy ล้มเหลว\n${err.detail || 'ตรวจสอบ LINE credentials'}`);
+      }
+    } finally {
+      btn.textContent = '🚀 Deploy ไปยัง LINE';
+      btn.disabled = false;
+    }
   }
 
   function saveConfig() {
@@ -206,6 +242,7 @@
   const saved = localStorage.getItem('richMenuConfig');
   if (saved) { Object.assign(configs, JSON.parse(saved)); }
 
+  document.getElementById('deployNote').innerHTML = deployNotes[currentTab] || '';
   renderButtonConfigs();
   renderPreview();
 </script>
