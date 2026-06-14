@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<title>Hotel Booking — UI Flow</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#f0f4f8;font-family:'Segoe UI',system-ui,sans-serif;}
+
+.topbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:white;border-bottom:2px solid #e2e8f0;position:sticky;top:0;z-index:200;}
+.topbar-title{font-size:15px;font-weight:700;color:#2d3748;margin-right:10px;}
+.tab{padding:6px 16px;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;font-size:13px;font-weight:600;background:white;color:#718096;transition:all .15s;}
+.tab.active{background:#3182ce;color:white;border-color:#3182ce;}
+.hint{margin-left:auto;font-size:11px;color:#a0aec0;}
+
+.section{display:none;}
+.section.active{display:block;}
+.section-title{padding:14px 22px 6px;font-size:16px;font-weight:700;color:#2d3748;}
+.canvas-wrap{overflow:auto;padding:18px;}
+
+.canvas{position:relative;background:white;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,.07);}
+
+/* Nodes */
+.node{position:absolute;border-radius:9px;padding:8px 12px;text-align:center;border:2px solid;font-size:11px;font-weight:600;line-height:1.35;box-shadow:0 2px 5px rgba(0,0,0,.09);}
+.nsub{font-size:9px;font-weight:400;opacity:.65;margin-top:2px;font-family:'Courier New',monospace;}
+
+/* Types */
+.n-entry{background:#fefcbf;border-color:#d69e2e;color:#744210;}
+.n-cms  {background:#ebf8ff;border-color:#3182ce;color:#2b6cb0;}
+.n-modal{background:#faf5ff;border-color:#805ad5;color:#553c9a;}
+.n-line {background:#c6f6d5;border-color:#276749;color:#1a4731;}
+.n-liff {background:#f0fff4;border-color:#38a169;color:#276749;}
+.n-ok   {background:#f0fff4;border-color:#68d391;color:#276749;}
+.n-error{background:#fff5f5;border-color:#fc8181;color:#c53030;}
+
+/* Column bands */
+.band{position:absolute;background:#f7fafc;border-radius:10px;border:1px dashed #e2e8f0;}
+.band-lbl{position:absolute;font-size:10px;font-weight:700;color:#a0aec0;letter-spacing:.5px;text-transform:uppercase;}
+
+svg.arrows{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;}
+
+/* Legend */
+.legend{position:absolute;bottom:14px;right:14px;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);}
+.lg-t{font-weight:700;color:#4a5568;margin-bottom:7px;font-size:11px;}
+.lg-r{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.lg-b{width:15px;height:12px;border-radius:3px;border:2px solid;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">🏨 Hotel Booking — UI Flow</span>
+  <button class="tab active" onclick="showTab('cms',this)">🖥️ CMS Admin</button>
+  <button class="tab" onclick="showTab('liff',this)">📱 LINE + LIFF</button>
+  <span class="hint">scroll ดูทั้งหมด</span>
+</div>
+
+<!-- ═══════════════════════════════════════
+     CMS SECTION
+═══════════════════════════════════════ -->
+<div class="section active" id="sec-cms">
+  <div class="section-title">🖥️ CMS Admin Flow — ทุก feature + error states</div>
+  <div class="canvas-wrap">
+    <div class="canvas" id="cv-cms" style="width:1880px;height:960px;">
+      <svg class="arrows" id="svg-cms"></svg>
+
+      <!-- Column bands -->
+      <div class="band" style="left:14px;top:280px;width:365px;height:645px;"></div>
+      <div class="band" style="left:394px;top:280px;width:365px;height:645px;"></div>
+      <div class="band" style="left:774px;top:280px;width:370px;height:645px;"></div>
+      <div class="band" style="left:1160px;top:280px;width:270px;height:645px;"></div>
+      <div class="band" style="left:1446px;top:280px;width:420px;height:645px;"></div>
+
+      <div class="band-lbl" style="left:148px;top:288px;">ห้องพัก</div>
+      <div class="band-lbl" style="left:520px;top:288px;">รายการจอง</div>
+      <div class="band-lbl" style="left:900px;top:288px;">การชำระเงิน</div>
+      <div class="band-lbl" style="left:1240px;top:288px;">คูปอง</div>
+      <div class="band-lbl" style="left:1580px;top:288px;">ผู้ดูแล</div>
+
+      <!-- ── Auth ── -->
+      <div class="node n-entry" id="c-login" style="left:850px;top:30px;width:165px;">
+        🔐 หน้า Login<div class="nsub">/cms/login</div>
+      </div>
+      <div class="node n-cms" id="c-dash" style="left:810px;top:155px;width:215px;">
+        📊 Dashboard<div class="nsub">/cms/dashboard</div>
+      </div>
+
+      <!-- ══ ROOMS (col 1: x 14–378) ══ -->
+      <div class="node n-cms" id="c-rooms" style="left:30px;top:316px;width:150px;">
+        🛏️ รายการห้อง<div class="nsub">/cms/rooms</div>
+      </div>
+
+      <div class="node n-cms" id="c-room-create" style="left:30px;top:448px;width:150px;">
+        ✏️ สร้างห้อง<div class="nsub">/cms/rooms/create</div>
+      </div>
+      <div class="node n-ok"    id="c-room-ok"  style="left:210px;top:438px;width:155px;">
+        ✅ toast "บันทึกสำเร็จ"<div class="nsub">redirect → /cms/rooms</div>
+      </div>
+      <div class="node n-error" id="c-room-err" style="left:210px;top:520px;width:155px;">
+        ❌ alert(err.detail)<div class="nsub">re-enable ปุ่ม</div>
+      </div>
+
+      <div class="node n-cms" id="c-room-edit" style="left:30px;top:608px;width:150px;">
+        🔧 แก้ไขห้อง<div class="nsub">/cms/rooms/{id}/edit</div>
+      </div>
+      <div class="node n-ok"    id="c-edit-ok"  style="left:210px;top:598px;width:155px;">
+        ✅ toast "บันทึกสำเร็จ"<div class="nsub">redirect → /cms/rooms</div>
+      </div>
+      <div class="node n-error" id="c-edit-err" style="left:210px;top:680px;width:155px;">
+        ❌ alert(err.detail)
+      </div>
+
+      <div class="node n-cms" id="c-room-img" style="left:30px;top:766px;width:150px;">
+        🖼️ จัดการรูป<div class="nsub">/cms/rooms/{id}/images</div>
+      </div>
+      <div class="node n-ok"    id="c-img-ok"  style="left:210px;top:756px;width:155px;">
+        ✅ แสดงรูปใน gallery
+      </div>
+      <div class="node n-error" id="c-img-err" style="left:210px;top:836px;width:155px;">
+        ❌ ❌ ข้างชื่อไฟล์
+      </div>
+
+      <!-- ══ BOOKINGS (col 2: x 394–758) ══ -->
+      <div class="node n-cms" id="c-book" style="left:415px;top:316px;width:150px;">
+        📋 รายการจอง<div class="nsub">/cms/bookings</div>
+      </div>
+
+      <div class="node n-modal" id="c-book-modal" style="left:415px;top:448px;width:150px;">
+        🔍 Detail Modal<div class="nsub">ข้อมูล + ประวัติชำระ</div>
+      </div>
+      <div class="node n-error" id="c-modal-err" style="left:585px;top:438px;width:155px;">
+        ❌ "โหลดไม่สำเร็จ"<div class="nsub">แสดงใน modal body</div>
+      </div>
+
+      <div class="node n-cms" id="c-book-action" style="left:415px;top:580px;width:150px;">
+        🔄 เปลี่ยนสถานะ<div class="nsub">ยืนยัน/เช็คอิน<br>เช็คเอาต์/ยกเลิก</div>
+      </div>
+      <div class="node n-ok"    id="c-book-ok"  style="left:585px;top:570px;width:155px;">
+        ✅ toast + reload
+      </div>
+      <div class="node n-error" id="c-book-err" style="left:585px;top:650px;width:155px;">
+        ❌ alert(err.detail)
+      </div>
+
+      <!-- ══ PAYMENTS (col 3: x 774–1143) ══ -->
+      <div class="node n-cms" id="c-pay" style="left:874px;top:316px;width:155px;">
+        💳 การชำระเงิน<div class="nsub">/cms/payments</div>
+      </div>
+
+      <div class="node n-cms"   id="c-pay-verify" style="left:790px;top:448px;width:135px;">
+        ✅ กด อนุมัติ<div class="nsub">confirm dialog</div>
+      </div>
+      <div class="node n-ok"    id="c-pay-ok"     style="left:790px;top:572px;width:135px;">
+        ✅ reload<div class="nsub">LINE notify ลูกค้า</div>
+      </div>
+      <div class="node n-error" id="c-pay-err"    style="left:790px;top:660px;width:135px;">
+        ❌ alert(err.detail)
+      </div>
+
+      <div class="node n-modal" id="c-pay-reject" style="left:960px;top:448px;width:135px;">
+        ❌ Reject Modal<div class="nsub">กรอกเหตุผล</div>
+      </div>
+      <div class="node n-ok"    id="c-rej-ok"     style="left:960px;top:572px;width:135px;">
+        ✅ reload<div class="nsub">LINE notify ลูกค้า</div>
+      </div>
+      <div class="node n-error" id="c-rej-err"    style="left:960px;top:660px;width:135px;">
+        ❌ alert(err.detail)
+      </div>
+
+      <!-- ══ COUPONS (col 4: x 1160–1429) ══ -->
+      <div class="node n-cms" id="c-coup" style="left:1220px;top:316px;width:150px;">
+        🎟️ คูปอง<div class="nsub">/cms/coupons</div>
+      </div>
+      <div class="node n-modal" id="c-coup-modal" style="left:1220px;top:448px;width:150px;">
+        ➕ Create Modal<div class="nsub">code/ประเภท/ค่า/วันหมด</div>
+      </div>
+      <div class="node n-ok"    id="c-coup-ok"   style="left:1220px;top:582px;width:150px;">
+        ✅ reload
+      </div>
+      <div class="node n-error" id="c-coup-err"  style="left:1220px;top:662px;width:150px;">
+        ❌ 409 code ซ้ำ<div class="nsub">alert(detail)</div>
+      </div>
+
+      <!-- ══ ADMINS (col 5: x 1446–1865) ══ -->
+      <div class="node n-cms" id="c-admin" style="left:1560px;top:316px;width:155px;">
+        👤 ผู้ดูแลระบบ<div class="nsub">/cms/admin-users</div>
+      </div>
+
+      <div class="node n-modal" id="c-admin-form" style="left:1464px;top:448px;width:170px;">
+        ➕/✏️ Create/Edit Modal<div class="nsub">name, user, pw, line_id, role</div>
+      </div>
+      <div class="node n-ok"    id="c-admin-ok"  style="left:1464px;top:594px;width:155px;">
+        ✅ reload
+      </div>
+      <div class="node n-error" id="c-admin-err" style="left:1464px;top:674px;width:155px;">
+        ❌ 409 username ซ้ำ<div class="nsub">alert(detail)</div>
+      </div>
+
+      <div class="node n-cms" id="c-toggle" style="left:1660px;top:448px;width:155px;">
+        🔄 Toggle Active<div class="nsub">PUT is_active</div>
+      </div>
+      <div class="node n-ok"    id="c-toggle-ok"  style="left:1660px;top:572px;width:155px;">
+        ✅ reload
+      </div>
+      <div class="node n-error" id="c-toggle-err" style="left:1660px;top:652px;width:155px;">
+        ❌ ไม่มี feedback<div class="nsub">(known issue)</div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="lg-t">Legend</div>
+        <div class="lg-r"><div class="lg-b" style="background:#fefcbf;border-color:#d69e2e;"></div>Entry point</div>
+        <div class="lg-r"><div class="lg-b" style="background:#ebf8ff;border-color:#3182ce;"></div>CMS Screen</div>
+        <div class="lg-r"><div class="lg-b" style="background:#faf5ff;border-color:#805ad5;"></div>Modal/Overlay</div>
+        <div class="lg-r"><div class="lg-b" style="background:#f0fff4;border-color:#68d391;"></div>Success</div>
+        <div class="lg-r"><div class="lg-b" style="background:#fff5f5;border-color:#fc8181;"></div>Error</div>
+        <div class="lg-r">
+          <svg width="36" height="10" style="flex-shrink:0"><defs><marker id="la" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5Z" fill="#3182ce"/></marker></defs><line x1="0" y1="5" x2="31" y2="5" stroke="#3182ce" stroke-width="1.5" marker-end="url(#la)"/></svg>Navigation
+        </div>
+        <div class="lg-r">
+          <svg width="36" height="10" style="flex-shrink:0"><defs><marker id="lb" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5Z" fill="#38a169"/></marker></defs><line x1="0" y1="5" x2="31" y2="5" stroke="#38a169" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#lb)"/></svg>Success
+        </div>
+        <div class="lg-r">
+          <svg width="36" height="10" style="flex-shrink:0"><defs><marker id="lc" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5Z" fill="#e53e3e"/></marker></defs><line x1="0" y1="5" x2="31" y2="5" stroke="#e53e3e" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#lc)"/></svg>Error
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     LIFF SECTION
+═══════════════════════════════════════ -->
+<div class="section" id="sec-liff">
+  <div class="section-title">📱 LINE Bot + LIFF Customer Flow</div>
+  <div class="canvas-wrap">
+    <div class="canvas" id="cv-liff" style="width:1300px;height:1060px;">
+      <svg class="arrows" id="svg-liff"></svg>
+
+      <!-- Bands -->
+      <div class="band" style="left:14px;top:130px;width:390px;height:910px;"></div>
+      <div class="band" style="left:640px;top:380px;width:430px;height:600px;"></div>
+      <div class="band" style="left:1086px;top:380px;width:190px;height:230px;"></div>
+
+      <div class="band-lbl" style="left:145px;top:138px;">Customer Journey</div>
+      <div class="band-lbl" style="left:790px;top:388px;">สถานะ / ชำระเงิน</div>
+      <div class="band-lbl" style="left:1100px;top:388px;">Admin</div>
+
+      <!-- ── Bot ── -->
+      <div class="node n-line" id="l-bot" style="left:540px;top:30px;width:195px;">
+        🤖 LINE Bot (Official Account)<div class="nsub">Messaging API webhook</div>
+      </div>
+
+      <!-- Left branch: ดูห้อง -->
+      <div class="node n-line" id="l-msg-room" style="left:70px;top:158px;width:160px;">
+        💬 พิมพ์ "ดูห้อง"
+      </div>
+
+      <!-- Right branch: การจอง -->
+      <div class="node n-line" id="l-msg-book" style="left:1020px;top:158px;width:160px;">
+        💬 พิมพ์ "การจอง"
+      </div>
+
+      <!-- Carousel -->
+      <div class="node n-line"  id="l-carousel" style="left:70px;top:285px;width:160px;">
+        🏨 Room Carousel<div class="nsub">Flex Message (LINE)</div>
+      </div>
+      <div class="node n-error" id="l-noroom"   style="left:255px;top:285px;width:125px;">
+        ❌ ไม่มีห้อง<div class="nsub">text reply</div>
+      </div>
+
+      <!-- LIFF steps -->
+      <div class="node n-liff" id="l-step1" style="left:70px;top:408px;width:165px;">
+        📅 Step 1: เลือกวันที่<div class="nsub">/liff/ (เปิดใน LINE)</div>
+      </div>
+      <div class="node n-error" id="l-noavail" style="left:260px;top:420px;width:120px;">
+        ❌ ไม่มีว่าง<div class="nsub">วันที่นี้</div>
+      </div>
+
+      <div class="node n-liff" id="l-step2" style="left:70px;top:530px;width:165px;">
+        🛏️ Step 2: เลือกห้อง<div class="nsub">GET /api/rooms/available</div>
+      </div>
+
+      <div class="node n-liff" id="l-step3" style="left:70px;top:660px;width:165px;">
+        👤 Step 3: ข้อมูลผู้เข้าพัก<div class="nsub">ชื่อ, โทร, คูปอง</div>
+      </div>
+
+      <!-- Coupon sub-flow -->
+      <div class="node n-liff"  id="l-coupon"   style="left:262px;top:648px;width:150px;">
+        🎟️ ตรวจสอบคูปอง<div class="nsub">/api/coupons/validate</div>
+      </div>
+      <div class="node n-ok"    id="l-coup-ok"  style="left:432px;top:630px;width:130px;">
+        ✅ แสดงส่วนลด
+      </div>
+      <div class="node n-error" id="l-coup-err" style="left:432px;top:714px;width:130px;">
+        ❌ ไม่ถูก/หมดอายุ
+      </div>
+
+      <div class="node n-liff" id="l-step4" style="left:70px;top:796px;width:165px;">
+        📝 Step 4: ยืนยันการจอง<div class="nsub">ทบทวนข้อมูลทั้งหมด</div>
+      </div>
+
+      <!-- POST booking -->
+      <div class="node n-liff" id="l-post" style="left:70px;top:912px;width:165px;">
+        📤 POST /api/bookings
+      </div>
+      <div class="node n-ok"    id="l-book-ok"  style="left:262px;top:912px;width:165px;">
+        ✅ booking created<div class="nsub">notify admin LINE</div>
+      </div>
+      <div class="node n-error" id="l-book-err" style="left:70px;top:982px;width:165px;">
+        ❌ ห้องถูกจองแล้ว<div class="nsub">Redis lock / conflict</div>
+      </div>
+
+      <!-- ── History ── -->
+      <div class="node n-liff" id="l-history" style="left:1018px;top:285px;width:165px;">
+        📋 ประวัติการจอง<div class="nsub">/liff/confirm?page=history</div>
+      </div>
+
+      <!-- ── Status page ── -->
+      <div class="node n-liff" id="l-status" style="left:655px;top:408px;width:170px;">
+        📄 สถานะการจอง<div class="nsub">/liff/confirm?ref=BK-xxxx</div>
+      </div>
+
+      <!-- ── Payment ── -->
+      <div class="node n-liff" id="l-payment" style="left:655px;top:538px;width:170px;">
+        💳 หน้าชำระเงิน<div class="nsub">/liff/payment?ref=</div>
+      </div>
+
+      <!-- ── Slip ── -->
+      <div class="node n-liff" id="l-slip" style="left:655px;top:668px;width:170px;">
+        📎 อัปโหลดสลิป<div class="nsub">POST /api/payments/upload-slip</div>
+      </div>
+      <div class="node n-ok"    id="l-slip-ok"  style="left:655px;top:804px;width:170px;">
+        ✅ ส่งสลิปสำเร็จ<div class="nsub">รอ admin ยืนยัน</div>
+      </div>
+      <div class="node n-error" id="l-slip-err" style="left:848px;top:804px;width:150px;">
+        ❌ upload ล้มเหลว<div class="nsub">alert error</div>
+      </div>
+
+      <!-- ── Admin confirms ── -->
+      <div class="node n-cms" id="l-admin-pay" style="left:1100px;top:538px;width:165px;">
+        🖥️ Admin อนุมัติ<div class="nsub">/cms/payments → อนุมัติ</div>
+      </div>
+      <div class="node n-ok" id="l-notify" style="left:1100px;top:428px;width:165px;">
+        📲 LINE push notify<div class="nsub">"ยืนยันการจองแล้ว!"</div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="lg-t">Legend</div>
+        <div class="lg-r"><div class="lg-b" style="background:#c6f6d5;border-color:#276749;"></div>LINE Bot</div>
+        <div class="lg-r"><div class="lg-b" style="background:#f0fff4;border-color:#38a169;"></div>LIFF Page</div>
+        <div class="lg-r"><div class="lg-b" style="background:#ebf8ff;border-color:#3182ce;"></div>CMS Action</div>
+        <div class="lg-r"><div class="lg-b" style="background:#f0fff4;border-color:#68d391;"></div>Success</div>
+        <div class="lg-r"><div class="lg-b" style="background:#fff5f5;border-color:#fc8181;"></div>Error</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(name,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  btn.classList.add('active');
+  setTimeout(drawAll,80);
+}
+
+// [fromId, toId, label, color, dashed, fromSide, toSide]
+const CMS=[
+  ['c-login','c-dash','เข้าสู่ระบบ','#3182ce',false,'b','t'],
+  ['c-dash','c-rooms','','#3182ce',false,'b','t'],
+  ['c-dash','c-book','','#3182ce',false,'b','t'],
+  ['c-dash','c-pay','','#3182ce',false,'b','t'],
+  ['c-dash','c-coup','','#3182ce',false,'b','t'],
+  ['c-dash','c-admin','','#3182ce',false,'b','t'],
+  // rooms
+  ['c-rooms','c-room-create','+ สร้างห้อง','#3182ce',false,'b','t'],
+  ['c-room-create','c-room-ok','OK','#38a169',true,'r','l'],
+  ['c-room-create','c-room-err','fail','#e53e3e',true,'r','l'],
+  ['c-rooms','c-room-edit','กด แก้ไข','#3182ce',false,'b','t'],
+  ['c-room-edit','c-edit-ok','OK','#38a169',true,'r','l'],
+  ['c-room-edit','c-edit-err','fail','#e53e3e',true,'r','l'],
+  ['c-rooms','c-room-img','กด รูปภาพ','#3182ce',false,'b','t'],
+  ['c-room-img','c-img-ok','upload OK','#38a169',true,'r','l'],
+  ['c-room-img','c-img-err','fail','#e53e3e',true,'r','l'],
+  // bookings
+  ['c-book','c-book-modal','คลิกแถว','#3182ce',false,'b','t'],
+  ['c-book-modal','c-modal-err','fetch fail','#e53e3e',true,'r','l'],
+  ['c-book','c-book-action','จัดการสถานะ','#3182ce',false,'b','t'],
+  ['c-book-action','c-book-ok','API OK','#38a169',true,'r','l'],
+  ['c-book-action','c-book-err','fail','#e53e3e',true,'r','l'],
+  // payments
+  ['c-pay','c-pay-verify','กด อนุมัติ','#3182ce',false,'b','t'],
+  ['c-pay','c-pay-reject','กด ปฏิเสธ','#3182ce',false,'b','t'],
+  ['c-pay-verify','c-pay-ok','OK','#38a169',true,'b','t'],
+  ['c-pay-verify','c-pay-err','fail','#e53e3e',true,'b','t'],
+  ['c-pay-reject','c-rej-ok','OK','#38a169',true,'b','t'],
+  ['c-pay-reject','c-rej-err','fail','#e53e3e',true,'b','t'],
+  // coupons
+  ['c-coup','c-coup-modal','+ สร้าง','#3182ce',false,'b','t'],
+  ['c-coup-modal','c-coup-ok','OK','#38a169',true,'b','t'],
+  ['c-coup-modal','c-coup-err','409/fail','#e53e3e',true,'b','t'],
+  // admins
+  ['c-admin','c-admin-form','+ เพิ่ม/แก้ไข','#3182ce',false,'b','t'],
+  ['c-admin','c-toggle','toggle switch','#3182ce',false,'b','t'],
+  ['c-admin-form','c-admin-ok','OK','#38a169',true,'b','t'],
+  ['c-admin-form','c-admin-err','fail','#e53e3e',true,'b','t'],
+  ['c-toggle','c-toggle-ok','OK','#38a169',true,'b','t'],
+  ['c-toggle','c-toggle-err','fail','#e53e3e',true,'b','t'],
+];
+
+const LIFF=[
+  ['l-bot','l-msg-room','"ดูห้อง"','#276749',false,'b','t'],
+  ['l-bot','l-msg-book','"การจอง"','#276749',false,'b','t'],
+  ['l-msg-room','l-carousel','มีห้อง','#276749',false,'b','t'],
+  ['l-msg-room','l-noroom','ไม่มีห้อง','#e53e3e',true,'r','l'],
+  ['l-carousel','l-step1','กด "จองเลย"','#38a169',false,'b','t'],
+  ['l-step1','l-noavail','ไม่ว่าง','#e53e3e',true,'r','l'],
+  ['l-step1','l-step2','ค้นหา','#38a169',false,'b','t'],
+  ['l-step2','l-step3','เลือกห้อง','#38a169',false,'b','t'],
+  ['l-step3','l-coupon','ใส่คูปอง','#38a169',false,'r','l'],
+  ['l-coupon','l-coup-ok','valid','#38a169',true,'r','l'],
+  ['l-coupon','l-coup-err','invalid','#e53e3e',true,'r','l'],
+  ['l-step3','l-step4','ถัดไป','#38a169',false,'b','t'],
+  ['l-step4','l-post','ยืนยัน','#38a169',false,'b','t'],
+  ['l-post','l-book-ok','success','#38a169',true,'r','l'],
+  ['l-post','l-book-err','fail/locked','#e53e3e',true,'b','t'],
+  ['l-book-ok','l-status','redirect','#38a169',false,'r','l'],
+  ['l-msg-book','l-history','เปิด LIFF','#276749',false,'b','t'],
+  ['l-history','l-status','tap booking','#276749',false,'b','l'],
+  ['l-status','l-payment','status=pending\nกด ชำระเงิน','#3182ce',false,'b','t'],
+  ['l-payment','l-slip','เลือกสลิป','#38a169',false,'b','t'],
+  ['l-slip','l-slip-ok','success','#38a169',true,'b','t'],
+  ['l-slip','l-slip-err','fail','#e53e3e',true,'r','l'],
+  ['l-slip-ok','l-status','ดูสถานะ','#38a169',false,'l','b'],
+  ['l-slip-ok','l-admin-pay','รอ admin','#805ad5',true,'r','b'],
+  ['l-admin-pay','l-notify','อนุมัติ','#38a169',true,'t','b'],
+  ['l-notify','l-status','push → reload','#38a169',true,'l','r'],
+];
+
+// ─── Bezier arrow drawing ─────────────────────────────────
+function box(id,cvId){
+  const el=document.getElementById(id), cv=document.getElementById(cvId);
+  if(!el||!cv) return null;
+  const er=el.getBoundingClientRect(), cr=cv.getBoundingClientRect();
+  const x=er.left-cr.left, y=er.top-cr.top;
+  return{x,y,w:er.width,h:er.height,cx:x+er.width/2,cy:y+er.height/2,
+    t:y,b:y+er.height,l:x,r:x+er.width};
+}
+
+function pt(b,side){
+  if(side==='t') return[b.cx,b.t];
+  if(side==='b') return[b.cx,b.b];
+  if(side==='l') return[b.l,b.cy];
+  if(side==='r') return[b.r,b.cy];
+  return[b.cx,b.cy];
+}
+
+function ctrl(x,y,side,dist){
+  if(side==='t') return[x,y-dist];
+  if(side==='b') return[x,y+dist];
+  if(side==='l') return[x-dist,y];
+  if(side==='r') return[x+dist,y];
+  return[x,y];
+}
+
+function drawArrows(svgId,cvId,specs){
+  const svg=document.getElementById(svgId);
+  if(!svg) return;
+  svg.innerHTML='';
+
+  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  ['#3182ce','#38a169','#e53e3e','#276749','#805ad5'].forEach(c=>{
+    const mk=document.createElementNS('http://www.w3.org/2000/svg','marker');
+    mk.setAttribute('id','mk'+c.replace('#',''));
+    mk.setAttribute('markerWidth','7'); mk.setAttribute('markerHeight','7');
+    mk.setAttribute('refX','5'); mk.setAttribute('refY','3.5');
+    mk.setAttribute('orient','auto');
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d','M0,0 L7,3.5 L0,7 Z'); p.setAttribute('fill',c);
+    mk.appendChild(p); defs.appendChild(mk);
+  });
+  svg.appendChild(defs);
+
+  specs.forEach(([fid,tid,lbl,color,dashed,fs,ts])=>{
+    const f=box(fid,cvId), t=box(tid,cvId);
+    if(!f||!t) return;
+    const[x1,y1]=pt(f,fs);
+    const[x2,y2]=pt(t,ts);
+    const dist=Math.min(Math.hypot(x2-x1,y2-y1)*0.4,80);
+    const[c1x,c1y]=ctrl(x1,y1,fs,dist);
+    const[c2x,c2y]=ctrl(x2,y2,ts,dist);
+
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${x1} ${y1} C${c1x} ${c1y} ${c2x} ${c2y} ${x2} ${y2}`);
+    path.setAttribute('stroke',color); path.setAttribute('stroke-width','1.6');
+    path.setAttribute('fill','none');
+    if(dashed) path.setAttribute('stroke-dasharray','6,3');
+    path.setAttribute('marker-end',`url(#mk${color.replace('#','')})`);
+    svg.appendChild(path);
+
+    if(lbl){
+      const mx=(x1+x2)/2, my=(y1+y2)/2;
+      const lines=lbl.split('\n');
+      const fw=Math.max(...lines.map(s=>s.length))*5.4+14;
+      const fh=lines.length*13+6;
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',mx-fw/2); rect.setAttribute('y',my-fh/2);
+      rect.setAttribute('width',fw); rect.setAttribute('height',fh);
+      rect.setAttribute('rx','4'); rect.setAttribute('fill','white');
+      rect.setAttribute('stroke','#e2e8f0'); rect.setAttribute('stroke-width','1');
+      svg.appendChild(rect);
+      lines.forEach((line,i)=>{
+        const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+        txt.setAttribute('x',mx);
+        txt.setAttribute('y',my-(lines.length-1)*6.5+i*13);
+        txt.setAttribute('text-anchor','middle');
+        txt.setAttribute('dominant-baseline','middle');
+        txt.setAttribute('font-size','9');
+        txt.setAttribute('font-family','Segoe UI,system-ui,sans-serif');
+        txt.setAttribute('fill',color);
+        txt.textContent=line;
+        svg.appendChild(txt);
+      });
+    }
+  });
+}
+
+function drawAll(){
+  drawArrows('svg-cms','cv-cms',CMS);
+  drawArrows('svg-liff','cv-liff',LIFF);
+}
+
+window.addEventListener('load',()=>setTimeout(drawAll,150));
+window.addEventListener('resize',drawAll);
+</script>
+</body>
+</html>
