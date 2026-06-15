@@ -4,7 +4,7 @@
 
 {% block head %}
 <style>
-  .cal-day { min-height: 80px; }
+  .cal-day { min-height: 84px; }
   .booking-chip { font-size: 10px; line-height: 1.2; }
 </style>
 {% endblock %}
@@ -12,34 +12,35 @@
 {% block content %}
 <div class="flex items-center justify-between mb-6">
   <div class="flex items-center gap-3">
-    <button id="prevMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">‹</button>
-    <h2 id="monthLabel" class="text-lg font-semibold text-gray-800 min-w-40 text-center"></h2>
-    <button id="nextMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">›</button>
+    <button id="prevMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">‹</button>
+    <h2 id="monthLabel" class="text-lg font-semibold text-gray-800 min-w-44 text-center"></h2>
+    <button id="nextMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">›</button>
   </div>
   <div class="flex items-center gap-4 text-sm">
-    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-400 rounded"></span> ว่าง</span>
-    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-yellow-400 rounded"></span> บางส่วน</span>
-    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-400 rounded"></span> เต็ม</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-white border border-gray-300 rounded"></span> ว่าง</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></span> บางส่วน</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> เต็ม</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-gray-300 border border-gray-400 rounded"></span> ปิดวันที่</span>
   </div>
 </div>
 
 <div class="bg-white rounded-xl shadow overflow-hidden">
   <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
-    {% for day in ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'] %}
+    {% for day in ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'] %}
     <div class="px-3 py-3 text-center text-sm font-medium text-gray-600">{{ day }}</div>
     {% endfor %}
   </div>
-  <div id="calendarGrid" class="grid grid-cols-7"></div>
+  <div id="calendarGrid" class="grid grid-cols-7 divide-x divide-y divide-gray-100"></div>
 </div>
 
-<!-- Booking Detail Modal -->
-<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-  <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="font-semibold text-gray-800" id="modalDate"></h3>
-      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+<!-- Day Modal -->
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+    <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+      <h3 class="font-bold text-gray-800" id="modalDate"></h3>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
     </div>
-    <div id="modalContent"></div>
+    <div id="modalContent" class="p-6"></div>
   </div>
 </div>
 {% endblock %}
@@ -48,112 +49,199 @@
 <script>
   const bookingsData = {{ bookings | tojson }};
   const totalRooms = {{ rooms | length }};
+  let blockedData = {{ blocked_dates | tojson }};
+  const todayStr = '{{ today }}';
 
-  let currentDate = new Date();
-  currentDate.setDate(1);
+  const REASONS = ['ซ่อมบำรุง', 'งดรับจอง', 'วันหยุดพิเศษ', 'อื่นๆ'];
 
-  function renderCalendar() {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-
-    document.getElementById('monthLabel').textContent =
-      currentDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
-
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const grid = document.getElementById('calendarGrid');
-    grid.innerHTML = '';
-
-    // Empty cells before first day
-    for (let i = 0; i < firstDay; i++) {
-      grid.appendChild(createEmptyCell());
-    }
-
-    // Day cells
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const dayBookings = getDayBookings(dateStr);
-      grid.appendChild(createDayCell(d, dateStr, dayBookings));
-    }
+  function getBlocked(dateStr) {
+    return blockedData.find(b => b.date === dateStr) || null;
   }
 
   function getDayBookings(dateStr) {
     return bookingsData.filter(b => b.check_in <= dateStr && b.check_out > dateStr);
   }
 
-  function createEmptyCell() {
-    const el = document.createElement('div');
-    el.className = 'cal-day border-b border-r border-gray-100 p-2 bg-gray-50';
-    return el;
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    document.getElementById('monthLabel').textContent =
+      currentDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    for (let i = 0; i < firstDay; i++) {
+      const el = document.createElement('div');
+      el.className = 'cal-day bg-gray-50/50';
+      grid.appendChild(el);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(month + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      grid.appendChild(createDayCell(d, `${year}-${mm}-${dd}`));
+    }
   }
 
-  function createDayCell(day, dateStr, dayBookings) {
+  function createDayCell(day, dateStr) {
     const el = document.createElement('div');
-    const occupancy = dayBookings.length / Math.max(totalRooms, 1);
+    const blocked = getBlocked(dateStr);
+    const dayBookings = getDayBookings(dateStr);
+    const isToday = dateStr === todayStr;
+
     let bgClass = '';
-    if (occupancy === 0) bgClass = '';
-    else if (occupancy < 0.5) bgClass = 'bg-yellow-50';
-    else if (occupancy < 1) bgClass = 'bg-orange-50';
-    else bgClass = 'bg-red-50';
-
-    el.className = `cal-day border-b border-r border-gray-100 p-2 cursor-pointer hover:bg-blue-50 transition ${bgClass}`;
-    el.innerHTML = `
-      <div class="flex items-start justify-between mb-1">
-        <span class="text-sm font-medium text-gray-700">${day}</span>
-        ${dayBookings.length > 0 ? `<span class="text-xs bg-blue-100 text-blue-700 px-1.5 rounded-full">${dayBookings.length}</span>` : ''}
-      </div>
-      ${dayBookings.slice(0, 2).map(b => `
-        <div class="booking-chip bg-blue-600 text-white px-1.5 py-0.5 rounded mb-0.5 truncate">${b.booking_ref}</div>
-      `).join('')}
-      ${dayBookings.length > 2 ? `<div class="booking-chip text-gray-400">+${dayBookings.length - 2} เพิ่มเติม</div>` : ''}
-    `;
-
-    if (dayBookings.length > 0) {
-      el.onclick = () => showDayDetail(dateStr, dayBookings);
+    if (blocked) {
+      bgClass = 'bg-gray-200';
+    } else {
+      const occ = dayBookings.length / Math.max(totalRooms, 1);
+      if (occ > 0 && occ < 0.5)  bgClass = 'bg-yellow-50';
+      else if (occ >= 0.5 && occ < 1) bgClass = 'bg-orange-50';
+      else if (occ >= 1) bgClass = 'bg-red-50';
     }
 
+    el.className = `cal-day p-2 cursor-pointer hover:brightness-95 transition ${bgClass}`;
+    el.onclick = () => openModal(dateStr, blocked, dayBookings);
+
+    const numEl = isToday
+      ? `<span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">${day}</span>`
+      : `<span class="text-sm font-medium text-gray-700">${day}</span>`;
+
+    if (blocked) {
+      el.innerHTML = `
+        <div class="flex items-start justify-between mb-1">${numEl}<span class="text-lg">🔒</span></div>
+        <div class="booking-chip text-gray-500 truncate">${blocked.reason || 'ปิดวันที่'}</div>`;
+    } else {
+      el.innerHTML = `
+        <div class="flex items-start justify-between mb-1">
+          ${numEl}
+          ${dayBookings.length > 0 ? `<span class="text-xs bg-blue-100 text-blue-700 px-1.5 rounded-full">${dayBookings.length}</span>` : ''}
+        </div>
+        ${dayBookings.slice(0, 2).map(b =>
+          `<div class="booking-chip bg-blue-600 text-white px-1.5 py-0.5 rounded mb-0.5 truncate">${b.booking_ref}</div>`
+        ).join('')}
+        ${dayBookings.length > 2 ? `<div class="booking-chip text-gray-400">+${dayBookings.length - 2} เพิ่มเติม</div>` : ''}`;
+    }
     return el;
   }
 
-  function showDayDetail(dateStr, bookings) {
-    document.getElementById('modalDate').textContent = `การจองวันที่ ${dateStr}`;
-    document.getElementById('modalContent').innerHTML = bookings.map(b => `
-      <div class="border border-gray-200 rounded-lg p-3 mb-3">
-        <div class="flex justify-between items-start">
-          <span class="font-mono font-semibold text-blue-600">${b.booking_ref}</span>
-          <span class="text-xs px-2 py-0.5 rounded-full ${getStatusClass(b.status)}">${b.status}</span>
-        </div>
-        <div class="text-sm text-gray-600 mt-1">${b.customer_name} — ฿${Number(b.total_price).toLocaleString()}</div>
-        <div class="text-xs text-gray-400 mt-0.5">${b.check_in} → ${b.check_out} (${b.nights} คืน)</div>
-      </div>
-    `).join('');
+  function openModal(dateStr, blocked, dayBookings) {
+    const d = new Date(dateStr + 'T00:00:00');
+    document.getElementById('modalDate').textContent =
+      d.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    let html = '';
+
+    if (blocked) {
+      html = `
+        <div class="text-center py-4">
+          <div class="text-5xl mb-3">🔒</div>
+          <div class="font-semibold text-gray-800 text-lg mb-1">วันที่ถูกปิดอยู่</div>
+          <div class="text-sm text-gray-500 mb-6">${blocked.reason || 'ไม่ระบุเหตุผล'}</div>
+          <button onclick="unblockDate('${blocked.id}','${dateStr}')"
+            class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition">
+            🔓 เปิดวันที่นี้
+          </button>
+        </div>`;
+    } else {
+      const bookingRows = dayBookings.length
+        ? dayBookings.map(b => `
+            <div class="border border-gray-200 rounded-xl p-3 mb-2">
+              <div class="flex justify-between items-start">
+                <span class="font-mono font-bold text-blue-600 text-sm">${b.booking_ref}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full ${getStatusClass(b.status)}">${getStatusLabel(b.status)}</span>
+              </div>
+              <div class="text-sm text-gray-700 mt-1">${b.customer_name}</div>
+              <div class="text-xs text-gray-400 mt-0.5">${b.check_in} → ${b.check_out} · ฿${Number(b.total_price).toLocaleString()}</div>
+            </div>`).join('')
+        : `<div class="text-center text-gray-400 text-sm py-3">ไม่มีการจองในวันนี้</div>`;
+
+      html = `
+        ${bookingRows}
+        <div class="border-t border-gray-100 pt-4 mt-2">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">ปิดวันที่นี้</div>
+          <div class="mb-2">
+            <select id="blockReasonSelect" onchange="toggleOtherReason(this.value)"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-400">
+              <option value="">— เลือกเหตุผล —</option>
+              ${REASONS.map(r => `<option value="${r}">${r}</option>`).join('')}
+            </select>
+          </div>
+          <div id="otherReasonBox" class="hidden mb-2">
+            <input type="text" id="otherReasonText" placeholder="ระบุเหตุผล..."
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-400"/>
+          </div>
+          <div id="blockError" class="text-red-500 text-xs mb-2 hidden">กรุณาเลือกเหตุผล</div>
+          <button onclick="blockDate('${dateStr}')"
+            class="w-full bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl font-semibold transition text-sm">
+            🔒 ปิดวันที่ ${dateStr}
+          </button>
+        </div>`;
+    }
+
+    document.getElementById('modalContent').innerHTML = html;
     document.getElementById('modal').classList.remove('hidden');
   }
 
-  function getStatusClass(status) {
-    const classes = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      confirmed: 'bg-green-100 text-green-700',
-      checked_in: 'bg-blue-100 text-blue-700',
-      checked_out: 'bg-gray-100 text-gray-700',
-      cancelled: 'bg-red-100 text-red-700',
-    };
-    return classes[status] || 'bg-gray-100';
+  function toggleOtherReason(val) {
+    document.getElementById('otherReasonBox').classList.toggle('hidden', val !== 'อื่นๆ');
+  }
+
+  async function blockDate(dateStr) {
+    const select = document.getElementById('blockReasonSelect');
+    const errEl = document.getElementById('blockError');
+    if (!select.value) { errEl.classList.remove('hidden'); return; }
+    errEl.classList.add('hidden');
+
+    const reason = select.value === 'อื่นๆ'
+      ? (document.getElementById('otherReasonText').value.trim() || 'อื่นๆ')
+      : select.value;
+
+    const res = await apiFetch('/api/blocked-dates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: dateStr, reason }),
+    });
+    if (!res || !res.ok) {
+      const err = res ? await res.json() : {};
+      alert(err.detail || 'ปิดวันที่ไม่สำเร็จ');
+      return;
+    }
+    const data = await res.json();
+    blockedData.push({ id: data.id, date: data.date, reason: data.reason || '' });
+    closeModal();
+    renderCalendar();
+  }
+
+  async function unblockDate(id, dateStr) {
+    if (!confirm(`เปิดวันที่ ${dateStr} ให้ลูกค้าจองได้ใช่ไหม?`)) return;
+    const res = await apiFetch(`/api/blocked-dates/${id}`, { method: 'DELETE' });
+    if (!res || !res.ok) { alert('เปิดวันที่ไม่สำเร็จ'); return; }
+    blockedData = blockedData.filter(b => b.id !== id);
+    closeModal();
+    renderCalendar();
   }
 
   function closeModal() {
     document.getElementById('modal').classList.add('hidden');
   }
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal')) closeModal();
+  });
 
-  document.getElementById('prevMonth').onclick = () => {
-    currentDate.setMonth(currentDate.getMonth() - 1);
-    renderCalendar();
-  };
-  document.getElementById('nextMonth').onclick = () => {
-    currentDate.setMonth(currentDate.getMonth() + 1);
-    renderCalendar();
-  };
+  function getStatusLabel(s) {
+    return { pending:'⏳ รอ', confirmed:'✅ ยืนยัน', checked_in:'🏠 เช็คอิน', checked_out:'👋 เช็คเอาต์', cancelled:'❌ ยกเลิก' }[s] || s;
+  }
+  function getStatusClass(s) {
+    return { pending:'bg-yellow-100 text-yellow-700', confirmed:'bg-green-100 text-green-700', checked_in:'bg-blue-100 text-blue-700', checked_out:'bg-gray-100 text-gray-600', cancelled:'bg-red-100 text-red-700' }[s] || 'bg-gray-100';
+  }
+
+  let currentDate = new Date();
+  currentDate.setDate(1);
+
+  document.getElementById('prevMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); };
+  document.getElementById('nextMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); };
 
   renderCalendar();
 </script>

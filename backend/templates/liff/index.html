@@ -238,6 +238,17 @@
         errEl.classList.remove('hidden');
         return;
       }
+      if (window._blockedDates) {
+        const start = new Date(ci), end = new Date(co);
+        for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+          const ds = d.toISOString().split('T')[0];
+          if (window._blockedDates.has(ds)) {
+            errEl.textContent = `วันที่ ${ds} ถูกปิดรับจอง กรุณาเลือกช่วงวันอื่น`;
+            errEl.classList.remove('hidden');
+            return;
+          }
+        }
+      }
 
       const btn = event.target;
       btn.disabled = true;
@@ -445,6 +456,35 @@
 
     setToday();
     initLiff();
+    loadBlockedDates();
+
+    async function loadBlockedDates() {
+      try {
+        const res = await fetch(`${APP_URL}/api/blocked-dates`);
+        const blocked = await res.json();
+        if (!blocked.length) return;
+
+        // Build set of blocked date strings
+        const blockedSet = new Set(blocked.map(b => b.date));
+
+        // Disable blocked dates via input min/max is not flexible enough
+        // Use change event to validate instead
+        ['checkIn', 'checkOut'].forEach(id => {
+          document.getElementById(id).addEventListener('change', function() {
+            if (blockedSet.has(this.value)) {
+              const errEl = document.getElementById('step1Error');
+              errEl.textContent = `วันที่ ${this.value} ถูกปิดรับจอง กรุณาเลือกวันอื่น`;
+              errEl.classList.remove('hidden');
+              this.value = '';
+            }
+          }, true);
+        });
+
+        // Add visual hint for blocked dates via datalist (browsers that support it)
+        // Also store globally for searchRooms validation
+        window._blockedDates = blockedSet;
+      } catch (e) { /* ignore */ }
+    }
 
     // If ?room_id= is in URL, pre-fetch and skip to date selection with that room queued
     (async () => {

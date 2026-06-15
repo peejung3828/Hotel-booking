@@ -200,6 +200,31 @@ class LineService:
 
         await self.reply_text(reply_token, "\n".join(lines))
 
+    async def notify_super_admin_date_blocked(
+        self,
+        date_str: str,
+        reason: str,
+        blocked_by_name: str,
+    ):
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(AdminUser).where(
+                    AdminUser.is_active == True,
+                    AdminUser.role == "super_admin",
+                    AdminUser.line_id.isnot(None),
+                )
+            )
+            super_admins = result.scalars().all()
+
+        text = (
+            f"🔒 แจ้งเตือน: ปิดวันที่\n\n"
+            f"วันที่: {date_str}\n"
+            f"เหตุผล: {reason or 'ไม่ระบุ'}\n"
+            f"โดย: {blocked_by_name}"
+        )
+        for sa in super_admins:
+            await self.push_text(sa.line_id, text)
+
     async def push_daily_summary(self, admin_line_id: str, stats: dict):
         text = (
             f"📊 สรุปประจำวัน {stats.get('date', '')}\n\n"

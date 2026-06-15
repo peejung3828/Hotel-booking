@@ -50,6 +50,17 @@ async def add_blocked_date(
     db.add(bd)
     await db.commit()
     await db.refresh(bd)
+
+    try:
+        from backend.services.line_service import LineService
+        await LineService().notify_super_admin_date_blocked(
+            date_str=str(bd.date),
+            reason=bd.reason or "",
+            blocked_by_name=current_user.name,
+        )
+    except Exception:
+        pass
+
     return {"id": str(bd.id), "date": str(bd.date), "reason": bd.reason}
 
 
