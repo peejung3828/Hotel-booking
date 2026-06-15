@@ -22,11 +22,9 @@
       <p class="text-blue-300 text-sm mt-1">{{ user.name if user else '' }}</p>
     </div>
     <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+      <!-- ทั้ง Admin และ Super Admin -->
       <a href="/cms/dashboard" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if request.url.path == '/cms/dashboard' %}active{% endif %}">
         <i class="fa fa-chart-bar w-5"></i> Dashboard
-      </a>
-      <a href="/cms/rooms" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/rooms' in request.url.path %}active{% endif %}">
-        <i class="fa fa-bed w-5"></i> ห้องพัก
       </a>
       <a href="/cms/bookings" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/bookings' in request.url.path %}active{% endif %}">
         <i class="fa fa-list w-5"></i> รายการจอง
@@ -37,21 +35,31 @@
       <a href="/cms/payments" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/payments' in request.url.path %}active{% endif %}">
         <i class="fa fa-credit-card w-5"></i> การชำระเงิน
       </a>
+
+      <!-- Super Admin เท่านั้น -->
+      {% if user and user.role == 'super_admin' %}
+      <div class="pt-3 pb-1">
+        <div class="text-xs text-blue-400 uppercase tracking-wider px-3">Super Admin</div>
+      </div>
+      <a href="/cms/rooms" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/rooms' in request.url.path %}active{% endif %}">
+        <i class="fa fa-bed w-5"></i> ห้องพัก
+      </a>
       <a href="/cms/coupons" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/coupons' in request.url.path %}active{% endif %}">
         <i class="fa fa-tag w-5"></i> คูปอง
       </a>
       <a href="/cms/rich-menu" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/rich-menu' in request.url.path %}active{% endif %}">
         <i class="fab fa-line w-5"></i> Rich Menu
       </a>
-      <a href="/cms/notifications" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition">
+      <a href="/cms/notifications" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/notifications' in request.url.path %}active{% endif %}">
         <i class="fa fa-bell w-5"></i> การแจ้งเตือน
       </a>
-      <a href="/cms/admin-users" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition">
+      <a href="/cms/admin-users" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/admin-users' in request.url.path %}active{% endif %}">
         <i class="fa fa-users w-5"></i> ผู้ดูแลระบบ
       </a>
-      <a href="/cms/settings" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition">
+      <a href="/cms/settings" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/settings' in request.url.path %}active{% endif %}">
         <i class="fa fa-cog w-5"></i> ตั้งค่า
       </a>
+      {% endif %}
     </nav>
     <div class="p-4 border-t border-blue-800">
       <button onclick="logout()" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 text-blue-300 hover:text-white transition">
@@ -66,7 +74,12 @@
     <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
       <h2 class="text-xl font-semibold text-gray-800">{% block page_title %}{% endblock %}</h2>
       <div class="flex items-center gap-4">
-        <span class="text-sm text-gray-500">{{ user.role if user else '' }}</span>
+        {% if user %}
+        <span class="text-xs px-2 py-1 rounded-full font-medium
+          {% if user.role == 'super_admin' %}bg-purple-100 text-purple-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+          {{ '⭐ Super Admin' if user.role == 'super_admin' else '🛠 Admin' }}
+        </span>
+        {% endif %}
         <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
           {{ user.name[0] if user and user.name else 'A' }}
         </div>

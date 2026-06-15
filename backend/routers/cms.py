@@ -46,6 +46,12 @@ async def cms_auth(request: Request, db: AsyncSession = Depends(get_db)) -> Admi
     return user
 
 
+async def cms_super_admin(user: AdminUser = Depends(cms_auth)) -> AdminUser:
+    if user.role != "super_admin":
+        raise HTTPException(status_code=307, headers={"Location": "/cms/dashboard"})
+    return user
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse(request, "auth/login.html", {})
@@ -102,7 +108,7 @@ async def dashboard(
 async def rooms_list(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     result = await db.execute(
         select(Room).options(selectinload(Room.images)).order_by(Room.created_at.desc())
@@ -116,7 +122,7 @@ async def rooms_list(
 @router.get("/rooms/create", response_class=HTMLResponse)
 async def room_create_page(
     request: Request,
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     return templates.TemplateResponse(request, "rooms/form.html", {
         "user": user, "room": None
@@ -128,7 +134,7 @@ async def room_edit_page(
     room_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     result = await db.execute(
         select(Room).options(selectinload(Room.images)).where(Room.id == room_id)
@@ -146,7 +152,7 @@ async def room_images_page(
     room_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     result = await db.execute(
         select(Room).options(selectinload(Room.images)).where(Room.id == room_id)
@@ -225,6 +231,12 @@ async def calendar_page(
     rooms_result = await db.execute(select(Room).where(Room.is_active == True))
     rooms = rooms_result.scalars().all()
 
+    blocked_result = await db.execute(select(BlockedDate).order_by(BlockedDate.date))
+    blocked_dates = [
+        {"id": str(b.id), "date": str(b.date), "reason": b.reason or ""}
+        for b in blocked_result.scalars().all()
+    ]
+
     bookings_json = [
         {
             "booking_ref": b.booking_ref,
@@ -244,6 +256,7 @@ async def calendar_page(
         "rooms": rooms,
         "today": today,
         "start_of_month": start_of_month,
+        "blocked_dates": blocked_dates,
     })
 
 
@@ -251,7 +264,7 @@ async def calendar_page(
 async def coupons_page(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     result = await db.execute(select(Coupon).order_by(Coupon.created_at.desc()))
     coupons = result.scalars().all()
@@ -263,7 +276,7 @@ async def coupons_page(
 @router.get("/rich-menu", response_class=HTMLResponse)
 async def rich_menu_page(
     request: Request,
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     return templates.TemplateResponse(request, "rich_menu/editor.html", {
         "user": user
@@ -303,7 +316,7 @@ async def payments_page(
 async def admin_users_page(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     result = await db.execute(select(AdminUser).order_by(AdminUser.created_at.desc()))
     users = result.scalars().all()
@@ -317,7 +330,7 @@ async def admin_users_page(
 @router.get("/notifications", response_class=HTMLResponse)
 async def notifications_page(
     request: Request,
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     return templates.TemplateResponse(request, "notifications.html", {
         "user": user,
@@ -328,7 +341,7 @@ async def notifications_page(
 async def settings_page(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: AdminUser = Depends(cms_auth),
+    user: AdminUser = Depends(cms_super_admin),
 ):
     blocked = await db.execute(select(BlockedDate).order_by(BlockedDate.date))
     blocked_dates = blocked.scalars().all()
