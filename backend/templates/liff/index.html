@@ -45,15 +45,27 @@
           <input type="date" id="checkOut"
             class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"/>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนผู้เข้าพัก</label>
-          <select id="guests"
-            class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none">
-            <option value="1">1 ท่าน</option>
-            <option value="2" selected>2 ท่าน</option>
-            <option value="3">3 ท่าน</option>
-            <option value="4">4 ท่าน</option>
-          </select>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">ผู้ใหญ่</label>
+            <select id="adults"
+              class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="1">1 ท่าน</option>
+              <option value="2" selected>2 ท่าน</option>
+              <option value="3">3 ท่าน</option>
+              <option value="4">4 ท่าน</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">เด็ก</label>
+            <select id="children"
+              class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="0" selected>ไม่มี</option>
+              <option value="1">1 คน</option>
+              <option value="2">2 คน</option>
+              <option value="3">3 คน</option>
+            </select>
+          </div>
         </div>
         <div id="step1Error" class="text-red-600 text-sm hidden"></div>
         <button onclick="searchRooms()"
@@ -212,7 +224,7 @@
     async function searchRooms() {
       const ci = document.getElementById('checkIn').value;
       const co = document.getElementById('checkOut').value;
-      const guests = document.getElementById('guests').value;
+      const guests = document.getElementById('adults').value;
       const errEl = document.getElementById('step1Error');
       errEl.classList.add('hidden');
 
@@ -403,6 +415,8 @@
         customer_phone: document.getElementById('guestPhone').value.trim(),
         check_in: document.getElementById('checkIn').value,
         check_out: document.getElementById('checkOut').value,
+        adults: parseInt(document.getElementById('adults').value),
+        children_count: parseInt(document.getElementById('children').value),
         coupon_code: document.getElementById('couponCode').value.trim() || null,
         notes: document.getElementById('notes').value.trim() || null,
       };

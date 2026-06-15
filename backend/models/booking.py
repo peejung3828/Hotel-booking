@@ -13,9 +13,10 @@ class Booking(Base):
     booking_ref: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     room_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("rooms.id"), nullable=False)
 
-    customer_line_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    customer_line_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     customer_name: Mapped[str] = mapped_column(String(200), nullable=False)
     customer_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    children_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     check_in: Mapped[date] = mapped_column(Date, nullable=False)
     check_out: Mapped[date] = mapped_column(Date, nullable=False)

@@ -10,6 +10,8 @@ class BookingCreate(BaseModel):
     customer_phone: str = Field(..., min_length=9, max_length=20)
     check_in: date
     check_out: date
+    adults: int = Field(default=1, ge=1)
+    children_count: int = Field(default=0, ge=0)
     coupon_code: str | None = None
     notes: str | None = None
 
@@ -24,6 +26,8 @@ class BookingOut(BaseModel):
     check_in: date
     check_out: date
     nights: int
+    adults: int = 1
+    children_count: int = 0
     base_price: float
     discount_amount: float
     total_price: float

@@ -118,6 +118,7 @@ class BookingService:
                 customer_line_id=data.customer_line_id,
                 customer_name=data.customer_name,
                 customer_phone=data.customer_phone,
+                children_count=data.children_count,
                 check_in=ci,
                 check_out=co,
                 nights=nights,
