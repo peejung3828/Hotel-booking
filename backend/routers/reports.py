@@ -413,7 +413,7 @@ async def _send_email(stats: dict, csv_bytes: bytes) -> dict:
         return {"sent": False, "message": "SMTP ยังไม่ได้ตั้งค่า กรุณาเพิ่ม SMTP_HOST และ REPORT_EMAIL ใน .env"}
 
     html = _build_email_html(stats)
-    filename = f"report_{THAI_MONTHS[stats['month']]}_{stats['year']}.csv"
+    fname_ascii = f"report_{stats['year']}_{stats['month']:02d}.csv"
 
     msg = MIMEMultipart("related")
     msg["Subject"] = (
@@ -425,8 +425,8 @@ async def _send_email(stats: dict, csv_bytes: bytes) -> dict:
 
     msg.attach(MIMEText(html, "html", "utf-8"))
 
-    attachment = MIMEApplication(csv_bytes, Name=filename)
-    attachment["Content-Disposition"] = f'attachment; filename="{filename}"'
+    attachment = MIMEApplication(csv_bytes, Name=fname_ascii)
+    attachment["Content-Disposition"] = f'attachment; filename="{fname_ascii}"'
     msg.attach(attachment)
 
     def _send_sync():
@@ -479,11 +479,11 @@ async def monthly_csv(
     bookings = q.scalars().all()
     csv_bytes = _make_csv_bytes(bookings)
 
-    fname = f"report_{THAI_MONTHS[m]}_{y}.csv"
+    fname_ascii = f"report_{y}_{m:02d}.csv"
     return StreamingResponse(
         iter([csv_bytes]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={fname}"},
+        headers={"Content-Disposition": f"attachment; filename={fname_ascii}"},
     )
 
 
