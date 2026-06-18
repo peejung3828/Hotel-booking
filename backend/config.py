@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     LINE_PAY_CHANNEL_SECRET: str = ""
     LINE_PAY_SANDBOX: bool = True
 
+    # Email (SMTP) for monthly reports
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    SMTP_FROM: str = ""
+    REPORT_EMAIL: str = ""
+
     class Config:
         env_file = ".env"
 

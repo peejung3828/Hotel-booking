@@ -41,6 +41,9 @@
       <div class="pt-3 pb-1">
         <div class="text-xs text-blue-400 uppercase tracking-wider px-3">Super Admin</div>
       </div>
+      <a href="/cms/reports" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/reports' in request.url.path %}active{% endif %}">
+        <i class="fa fa-chart-line w-5"></i> รายงาน
+      </a>
       <a href="/cms/rooms" class="sidebar-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-800 transition {% if '/cms/rooms' in request.url.path %}active{% endif %}">
         <i class="fa fa-bed w-5"></i> ห้องพัก
       </a>

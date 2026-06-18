@@ -10,7 +10,7 @@ from backend.database import engine, Base
 from backend.routers import (
     webhook, rooms, bookings, payments, coupons, cms, auth, upload,
 )
-from backend.routers import admin_users, notifications, blocked_dates, liff_pages, line_rich_menu
+from backend.routers import admin_users, notifications, blocked_dates, liff_pages, line_rich_menu, reports
 from backend.services.notification_service import scheduler
 
 
@@ -59,6 +59,7 @@ app.include_router(blocked_dates.router, prefix="/api/blocked-dates", tags=["blo
 app.include_router(webhook.router, tags=["webhook"])
 app.include_router(liff_pages.router, prefix="/liff", tags=["liff"])
 app.include_router(line_rich_menu.router, prefix="/api/line/rich-menu", tags=["rich-menu"])
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(cms.router, prefix="/cms", tags=["cms"])
 
 

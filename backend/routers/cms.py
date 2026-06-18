@@ -337,6 +337,14 @@ async def notifications_page(
     })
 
 
+@router.get("/reports", response_class=HTMLResponse)
+async def reports_page(
+    request: Request,
+    user: AdminUser = Depends(cms_super_admin),
+):
+    return templates.TemplateResponse(request, "reports/index.html", {"user": user})
+
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(
     request: Request,

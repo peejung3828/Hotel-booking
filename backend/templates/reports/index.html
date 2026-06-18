@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}รายงาน - Hotel CMS{% endblock %}
+{% block page_title %}รายงานผลประกอบการ{% endblock %}
+
+{% block content %}
+<!-- Controls -->
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+  <div class="flex items-center gap-2">
+    <button id="prevMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition text-gray-600">‹</button>
+    <div class="px-4 py-2 bg-white border border-gray-200 rounded-lg font-semibold text-gray-800 min-w-44 text-center" id="monthLabel">—</div>
+    <button id="nextMonth" class="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition text-gray-600">›</button>
+  </div>
+  <div class="flex gap-2">
+    <button id="btnEmail"
+      class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition text-sm">
+      <i class="fa fa-envelope"></i> ส่งรายงานทางอีเมล
+    </button>
+    <button id="btnCsv"
+      class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition text-sm">
+      <i class="fa fa-download"></i> ดาวน์โหลด CSV
+    </button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loadingState" class="flex items-center justify-center py-20 text-gray-400">
+  <i class="fa fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...
+</div>
+
+<!-- Report content (hidden until loaded) -->
+<div id="reportContent" class="hidden space-y-5">
+
+  <!-- Section 1: Overview -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">💰 ภาพรวมรายได้ (Overview)</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Revenue -->
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-blue-100">
+        <div class="text-xs text-gray-400 mb-1">รายได้รวม (verified)</div>
+        <div class="text-2xl font-bold text-blue-600" id="statRevenue">—</div>
+        <div class="mt-1 text-xs" id="statRevenueBadge"></div>
+      </div>
+      <!-- Bookings -->
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-green-100">
+        <div class="text-xs text-gray-400 mb-1">จำนวนการจองที่สำเร็จ</div>
+        <div class="text-2xl font-bold text-green-600" id="statBookings">—</div>
+        <div class="mt-1 text-xs" id="statBookingsBadge"></div>
+      </div>
+      <!-- Occupancy -->
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-purple-100">
+        <div class="text-xs text-gray-400 mb-1">อัตราเข้าพัก (Occupancy)</div>
+        <div class="text-2xl font-bold text-purple-600" id="statOccupancy">—</div>
+        <div class="mt-1 text-xs" id="statOccupancyBadge"></div>
+      </div>
+      <!-- Ticket Size -->
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-yellow-100">
+        <div class="text-xs text-gray-400 mb-1">ยอดเฉลี่ย/การจอง (Ticket Size)</div>
+        <div class="text-2xl font-bold text-yellow-600" id="statTicket">—</div>
+        <div class="mt-1 text-xs text-gray-400">ราคาเฉลี่ยต่อคืน (ADR): <span id="statAdr" class="font-semibold text-gray-700">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Room Performance -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- Top Rooms -->
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">📈 ห้องพักยอดฮิต 3 อันดับแรก</h3>
+      <table class="w-full text-sm" id="topRoomsTable">
+        <thead>
+          <tr class="text-xs text-gray-400 border-b">
+            <th class="pb-2 text-left font-medium">ห้องพัก</th>
+            <th class="pb-2 text-right font-medium">การจอง</th>
+            <th class="pb-2 text-right font-medium">% ของเดือน</th>
+          </tr>
+        </thead>
+        <tbody id="topRoomsBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Status Breakdown -->
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">📊 สถานะการจอง</h3>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            <span class="text-sm text-gray-600">Checked-out สำเร็จ</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-green-400 rounded-full" id="barCheckedOut" style="width:0%"></div>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 w-8 text-right" id="statCheckedOut">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+            <span class="text-sm text-gray-600">Confirmed / เช็คอิน</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-blue-400 rounded-full" id="barConfirmed" style="width:0%"></div>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 w-8 text-right" id="statConfirmed">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-400"></span>
+            <span class="text-sm text-gray-600">Cancelled</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-red-400 rounded-full" id="barCancelled" style="width:0%"></div>
+            </div>
+            <span class="text-sm font-semibold text-gray-800 w-8 text-right" id="statCancelled">0</span>
+          </div>
+        </div>
+        <div class="pt-2 border-t border-gray-100 text-xs text-gray-400">
+          อัตราการยกเลิก: <span id="statCancelRate" class="font-semibold text-gray-700">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Customer Insights -->
+  <div class="bg-white rounded-xl shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4">👥 พฤติกรรมของลูกค้า (Customer Insights)</h3>
+    <div class="flex flex-wrap gap-4">
+      <div class="flex items-center gap-3 bg-blue-50 rounded-xl px-5 py-4 flex-1 min-w-48">
+        <span class="text-4xl">👨‍👩‍👧</span>
+        <div>
+          <div class="text-2xl font-bold text-blue-700" id="statFamilyPct">—</div>
+          <div class="text-xs text-gray-500">กลุ่มครอบครัวที่มีเด็ก</div>
+          <div class="text-xs text-gray-400" id="statFamilyCount">— รายการ</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 bg-purple-50 rounded-xl px-5 py-4 flex-1 min-w-48">
+        <span class="text-4xl">🌙</span>
+        <div>
+          <div class="text-2xl font-bold text-purple-700" id="statNights">—</div>
+          <div class="text-xs text-gray-500">คืนที่ขายได้รวม</div>
+          <div class="text-xs text-gray-400" id="statTotalRooms">— ห้อง × <span id="statDays">—</span> วัน</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Smart Insights -->
+  <div class="bg-amber-50 border border-amber-200 border-l-4 border-l-amber-400 rounded-r-xl p-5">
+    <h3 class="text-sm font-semibold text-amber-800 mb-3">💡 แนะนำสำหรับเดือนหน้า (Smart Insights)</h3>
+    <div id="insightsList" class="space-y-1.5 text-sm text-amber-900"></div>
+  </div>
+
+</div><!-- end #reportContent -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const THAI_MONTHS = ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const MEDALS = ['🥇','🥈','🥉'];
+
+  const now = new Date();
+  let curYear = now.getFullYear();
+  let curMonth = now.getMonth() + 1;
+
+  function updateMonthLabel() {
+    document.getElementById('monthLabel').textContent = `${THAI_MONTHS[curMonth]} ${curYear}`;
+  }
+
+  function thb(n) { return '฿' + Math.round(n).toLocaleString(); }
+
+  function badge(pct) {
+    if (pct === null || pct === undefined) return '<span class="text-gray-400">—</span>';
+    const up = pct > 0;
+    const color = pct > 0 ? 'text-green-600' : pct < 0 ? 'text-red-500' : 'text-gray-400';
+    const arrow = pct > 0 ? '🔺' : pct < 0 ? '🔻' : '→';
+    const sign  = pct > 0 ? '+' : '';
+    return `<span class="${color}">${arrow} ${sign}${pct}% จากเดือนที่แล้ว</span>`;
+  }
+
+  async function loadStats() {
+    document.getElementById('loadingState').classList.remove('hidden');
+    document.getElementById('reportContent').classList.add('hidden');
+
+    const res = await apiFetch(`/api/reports/monthly?year=${curYear}&month=${curMonth}`);
+    if (!res || !res.ok) {
+      document.getElementById('loadingState').innerHTML =
+        '<span class="text-red-500"><i class="fa fa-exclamation-circle mr-2"></i>โหลดข้อมูลไม่สำเร็จ</span>';
+      return;
+    }
+    const d = await res.json();
+    renderStats(d);
+  }
+
+  function renderStats(d) {
+    // Overview cards
+    document.getElementById('statRevenue').textContent = thb(d.revenue);
+    document.getElementById('statRevenueBadge').innerHTML = badge(d.revenue_change_pct);
+    document.getElementById('statBookings').textContent = d.bookings_active;
+    document.getElementById('statBookingsBadge').innerHTML = badge(d.bookings_change_pct);
+    document.getElementById('statOccupancy').textContent = d.occupancy_pct + '%';
+    document.getElementById('statOccupancyBadge').innerHTML = badge(d.occupancy_change_pct);
+    document.getElementById('statTicket').textContent = thb(d.ticket_size);
+    document.getElementById('statAdr').textContent = thb(d.adr);
+
+    // Top rooms
+    const tbody = document.getElementById('topRoomsBody');
+    if (d.top_rooms.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-400 text-sm">ไม่มีการจองในเดือนนี้</td></tr>';
+    } else {
+      tbody.innerHTML = d.top_rooms.map((r, i) => {
+        const pct = d.bookings_active > 0 ? Math.round(r.count / d.bookings_active * 100) : 0;
+        return `<tr class="border-b border-gray-50">
+          <td class="py-2.5">${MEDALS[i]} ${r.name}</td>
+          <td class="py-2.5 text-right font-semibold">${r.count}</td>
+          <td class="py-2.5 text-right text-gray-400">${pct}%</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Status breakdown
+    const total = d.status_checked_out + d.status_confirmed_or_in + d.status_cancelled || 1;
+    document.getElementById('statCheckedOut').textContent = d.status_checked_out;
+    document.getElementById('statConfirmed').textContent = d.status_confirmed_or_in;
+    document.getElementById('statCancelled').textContent = d.status_cancelled;
+    document.getElementById('barCheckedOut').style.width = Math.round(d.status_checked_out / total * 100) + '%';
+    document.getElementById('barConfirmed').style.width = Math.round(d.status_confirmed_or_in / total * 100) + '%';
+    document.getElementById('barCancelled').style.width = Math.round(d.status_cancelled / total * 100) + '%';
+    document.getElementById('statCancelRate').textContent =
+      d.cancellation_rate_pct + '%' + (d.cancellation_rate_pct < 10 ? ' 📉' : ' ⚠️');
+
+    // Customer insights
+    document.getElementById('statFamilyPct').textContent = d.family_pct + '%';
+    document.getElementById('statFamilyCount').textContent = d.family_count + ' รายการ';
+    document.getElementById('statNights').textContent = d.nights_sold.toLocaleString();
+    document.getElementById('statTotalRooms').textContent = d.total_rooms + ' ห้อง ×';
+    document.getElementById('statDays').textContent = d.days_in_month + ' วัน';
+
+    // Smart insights
+    document.getElementById('insightsList').innerHTML = d.insights.map(
+      ins => `<p class="flex gap-2"><span>📌</span><span>${ins}</span></p>`
+    ).join('');
+
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('reportContent').classList.remove('hidden');
+  }
+
+  // Month navigation
+  document.getElementById('prevMonth').onclick = () => {
+    if (curMonth === 1) { curMonth = 12; curYear--; } else curMonth--;
+    updateMonthLabel();
+    loadStats();
+  };
+  document.getElementById('nextMonth').onclick = () => {
+    if (curMonth === 12) { curMonth = 1; curYear++; } else curMonth++;
+    updateMonthLabel();
+    loadStats();
+  };
+
+  // Download CSV (fetch as blob → download)
+  document.getElementById('btnCsv').onclick = async () => {
+    const btn = document.getElementById('btnCsv');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> กำลังสร้าง...';
+    const res = await apiFetch(`/api/reports/monthly/csv?year=${curYear}&month=${curMonth}`);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-download"></i> ดาวน์โหลด CSV';
+    if (!res || !res.ok) { alert('ดาวน์โหลดไม่สำเร็จ'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report_${THAI_MONTHS[curMonth]}_${curYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Send email
+  document.getElementById('btnEmail').onclick = async () => {
+    const btn = document.getElementById('btnEmail');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> กำลังส่ง...';
+    const res = await apiFetch(
+      `/api/reports/monthly/email?year=${curYear}&month=${curMonth}`,
+      { method: 'POST' }
+    );
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-envelope"></i> ส่งรายงานทางอีเมล';
+    if (!res) return;
+    const data = await res.json();
+    if (data.sent) {
+      showAlert('success', `✅ ส่งรายงานไปที่ ${data.to} แล้ว`);
+    } else {
+      showAlert('error', `❌ ส่งไม่สำเร็จ: ${data.message}`);
+    }
+  };
+
+  function showAlert(type, msg) {
+    const el = document.getElementById('globalAlert');
+    el.className = 'mx-6 mt-4 px-4 py-3 rounded-lg text-sm ' +
+      (type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+  }
+
+  updateMonthLabel();
+  loadStats();
+</script>
+{% endblock %}
