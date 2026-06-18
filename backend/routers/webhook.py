@@ -148,6 +148,20 @@ async def handle_postback(
     if not data_str:
         return
 
+    if data_str.startswith("view_images:"):
+        from sqlalchemy import and_
+        from sqlalchemy.orm import selectinload
+        from backend.models.room import Room
+        room_type = data_str.split(":", 1)[1]
+        rooms_result = await db.execute(
+            select(Room)
+            .options(selectinload(Room.images))
+            .where(and_(Room.is_active == True, Room.type == room_type))
+        )
+        rooms = rooms_result.scalars().all()
+        await line_service.reply_room_type_images(reply_token, room_type, rooms)
+        return
+
     try:
         params = dict(item.split("=") for item in data_str.split("&"))
     except Exception:

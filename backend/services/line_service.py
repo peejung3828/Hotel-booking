@@ -354,18 +354,111 @@ class LineService:
                 "footer": {
                     "type": "box",
                     "layout": "vertical",
-                    "contents": [{
-                        "type": "button",
-                        "style": "primary",
-                        "action": {
-                            "type": "uri",
-                            "label": "จองห้องประเภทนี้",
-                            "uri": f"https://liff.line.me/{settings.LIFF_ID}?room_type={room_type}",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "style": "secondary",
+                            "height": "sm",
+                            "action": {
+                                "type": "postback",
+                                "label": "ดูรูปทั้งหมด",
+                                "data": f"view_images:{room_type}",
+                            },
                         },
-                    }],
+                        {
+                            "type": "button",
+                            "style": "primary",
+                            "height": "sm",
+                            "action": {
+                                "type": "uri",
+                                "label": "จองห้องประเภทนี้",
+                                "uri": f"https://liff.line.me/{settings.LIFF_ID}?room_type={room_type}",
+                            },
+                        },
+                    ],
                 },
             })
         return {"type": "carousel", "contents": bubbles}
+
+    def build_room_type_images_carousel(self, room_type: str, rooms: list) -> dict:
+        label = self._TYPE_LABELS.get(room_type, room_type.title())
+        min_price = min((r.price_per_night for r in rooms), default=0)
+        desc = (rooms[0].description or "") if rooms else ""
+
+        seen: set[str] = set()
+        all_images: list[str] = []
+        for room in rooms:
+            for img in room.images:
+                url = f"{settings.APP_URL}{img.url}" if img.url.startswith("/") else img.url
+                if url not in seen:
+                    seen.add(url)
+                    all_images.append(url)
+
+        bubbles = []
+        for i, img_url in enumerate(all_images[:11]):  # max 12 bubbles, save last for booking
+            bubbles.append({
+                "type": "bubble",
+                "hero": {
+                    "type": "image",
+                    "url": img_url,
+                    "size": "full",
+                    "aspectRatio": "3:2",
+                    "aspectMode": "cover",
+                },
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "paddingAll": "8px",
+                    "contents": [{
+                        "type": "text",
+                        "text": f"ห้อง{label}  {i + 1}/{len(all_images)}",
+                        "size": "xs",
+                        "color": "#888888",
+                    }],
+                },
+            })
+
+        book_contents = [
+            {"type": "text", "text": f"ห้อง{label}", "weight": "bold", "size": "xl"},
+            {"type": "text", "text": f"เริ่มต้น ฿{min_price:,.0f}/คืน",
+             "size": "lg", "color": "#1a73e8", "weight": "bold", "margin": "sm"},
+        ]
+        if desc:
+            book_contents.append(
+                {"type": "text", "text": desc[:80], "size": "sm", "color": "#666666", "wrap": True, "margin": "sm"}
+            )
+        bubbles.append({
+            "type": "bubble",
+            "body": {"type": "box", "layout": "vertical", "contents": book_contents},
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [{
+                    "type": "button",
+                    "style": "primary",
+                    "action": {
+                        "type": "uri",
+                        "label": "จองห้องประเภทนี้",
+                        "uri": f"https://liff.line.me/{settings.LIFF_ID}?room_type={room_type}",
+                    },
+                }],
+            },
+        })
+        return {"type": "carousel", "contents": bubbles}
+
+    async def reply_room_type_images(self, reply_token: str, room_type: str, rooms: list):
+        if not rooms:
+            await self.reply_text(reply_token, "ไม่พบรูปห้องประเภทนี้")
+            return
+        label = self._TYPE_LABELS.get(room_type, room_type.title())
+        flex = FlexMessage(
+            alt_text=f"รูปห้อง{label}",
+            contents=FlexContainer.from_dict(self.build_room_type_images_carousel(room_type, rooms)),
+        )
+        await self.messaging_api.reply_message(
+            ReplyMessageRequest(reply_token=reply_token, messages=[flex])
+        )
 
     async def reply_room_type_carousel(self, reply_token: str, rooms: list):
         if not rooms:

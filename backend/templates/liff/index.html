@@ -349,14 +349,33 @@
     function renderRooms(rooms) {
       const container = document.getElementById('roomsContainer');
       container.innerHTML = rooms.map(r => {
-        const coverImg = (r.images && r.images.find(i => i.is_cover)) || (r.images && r.images[0]);
-        const imgSrc = coverImg ? `${APP_URL}${coverImg.url}` : 'https://placehold.co/400x250/e2e8f0/94a3b8?text=No+Image';
-        const typeLabel = { standard: 'Standard', deluxe: 'Deluxe', suite: 'Suite', villa: 'Villa' }[r.type] || r.type;
+        const images = r.images || [];
+        const typeLabel = TYPE_LABELS[r.type] || r.type;
+        const rJson = JSON.stringify(r).replace(/"/g, '&quot;');
+
+        let galleryHtml;
+        if (images.length <= 1) {
+          const src = images[0] ? `${APP_URL}${images[0].url}` : 'https://placehold.co/400x250/e2e8f0/94a3b8?text=No+Image';
+          galleryHtml = `<img src="${src}" alt="${r.name}" class="w-full h-48 object-cover"/>`;
+        } else {
+          const slides = images.map((img, idx) => `
+            <div class="flex-shrink-0 w-full relative" style="scroll-snap-align:start">
+              <img src="${APP_URL}${img.url}" alt="${r.name}" class="w-full h-48 object-cover" loading="lazy"/>
+              <span class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full pointer-events-none">
+                ${idx + 1}/${images.length}
+              </span>
+            </div>`).join('');
+          galleryHtml = `
+            <div class="flex h-48 overflow-x-auto" style="scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch"
+                 onclick="event.stopPropagation()">
+              ${slides}
+            </div>`;
+        }
+
         return `
-          <div class="room-card bg-white rounded-2xl shadow overflow-hidden border-2 border-transparent cursor-pointer transition"
-            onclick="selectRoom(${JSON.stringify(r).replace(/"/g, '&quot;')}, this)">
-            <img src="${imgSrc}" alt="${r.name}" class="w-full h-48 object-cover"/>
-            <div class="p-4">
+          <div class="room-card bg-white rounded-2xl shadow overflow-hidden border-2 border-transparent transition">
+            ${galleryHtml}
+            <div class="p-4 cursor-pointer" onclick="selectRoom(${rJson}, this.closest('.room-card'))">
               <div class="flex justify-between items-start">
                 <div>
                   <div class="font-bold text-gray-800 text-base">${r.name}</div>
@@ -368,6 +387,9 @@
                 </div>
               </div>
               ${r.description ? `<p class="text-sm text-gray-600 mt-2 line-clamp-2">${r.description}</p>` : ''}
+              <button class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition">
+                เลือกห้องนี้
+              </button>
             </div>
           </div>`;
       }).join('');
