@@ -77,6 +77,48 @@ def _build_areas(buttons: list[ButtonConfig]) -> list[RichMenuArea]:
     return areas
 
 
+_FONT_PATHS = [
+    # Linux (Noto — Thai + Latin)
+    "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansThai-Regular.otf",
+    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSans-Regular.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    # Windows fallback (dev)
+    "arial.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+    "C:/Windows/Fonts/tahoma.ttf",
+]
+
+_EMOJI_PATHS = [
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf",
+    "seguiemj.ttf",
+    "C:/Windows/Fonts/seguiemj.ttf",
+]
+
+
+def _load_font(size: int, emoji: bool = False) -> ImageFont.FreeTypeFont:
+    paths = _EMOJI_PATHS if emoji else _FONT_PATHS
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
+def _draw_text_centered(draw, text: str, cx: int, cy: int, font, color: str = "#ffffff"):
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+        draw.text((cx - tw // 2, cy - th // 2), text, font=font, fill=color)
+    except Exception:
+        draw.text((cx - 40, cy - 20), text, font=font, fill=color)
+
+
 def _generate_image(buttons: list[ButtonConfig]) -> bytes:
     n = len(buttons)
     if n <= 3:
@@ -89,15 +131,11 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
     cell_w = CANVAS_W // cols
     cell_h = CANVAS_H // rows
 
-    img = Image.new("RGB", (CANVAS_W, CANVAS_H), "#f8f9fa")
+    img = Image.new("RGB", (CANVAS_W, CANVAS_H), "#1a1a2e")
     draw = ImageDraw.Draw(img)
 
-    try:
-        font_label = ImageFont.truetype("arial.ttf", 72)
-        font_icon = ImageFont.truetype("seguiemj.ttf", 120)
-    except Exception:
-        font_label = ImageFont.load_default()
-        font_icon = font_label
+    font_label = _load_font(96)
+    font_emoji = _load_font(130, emoji=True)
 
     for i, btn in enumerate(buttons):
         col = i % cols
@@ -106,32 +144,41 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
         y0 = row * cell_h
         x1 = x0 + cell_w
         y1 = y0 + cell_h
+        cx = (x0 + x1) // 2
+        cy = (y0 + y1) // 2
 
         # Background
         color = BUTTON_COLORS[i % len(BUTTON_COLORS)]
-        draw.rectangle([x0 + 4, y0 + 4, x1 - 4, y1 - 4], fill=color, outline="#ffffff", width=3)
+        draw.rectangle([x0, y0, x1, y1], fill=color)
 
-        # Label text centered
-        label = btn.label
-        cx = x0 + cell_w // 2
-        cy = y0 + cell_h // 2
+        # Lighter overlay strip at top for depth
+        draw.rectangle([x0, y0, x1, y0 + 8], fill="#ffffff30" if color else color)
 
-        # Try to draw icon above label
-        try:
-            bbox_icon = draw.textbbox((cx, cy - 80), btn.icon, font=font_icon, anchor="mm")
-            draw.text((cx, cy - 80), btn.icon, font=font_icon, fill="#ffffff", anchor="mm")
-            draw.text((cx, cy + 80), label, font=font_label, fill="#ffffff", anchor="mm")
-        except Exception:
-            draw.text((cx, cy), label, font=font_label, fill="#ffffff", anchor="mm")
-
-        # Border between cells
+        # White dividers
         if col < cols - 1:
-            draw.line([x1, y0, x1, y1], fill="#ffffff", width=4)
+            draw.line([x1, y0, x1, y1], fill="#ffffff", width=6)
         if row < rows - 1:
-            draw.line([x0, y1, x1, y1], fill="#ffffff", width=4)
+            draw.line([x0, y1, x1, y1], fill="#ffffff", width=6)
+
+        # Try emoji icon above label; fall back to label-only if emoji won't render
+        icon = btn.icon
+        drew_icon = False
+        if icon and font_emoji is not None:
+            try:
+                bbox = draw.textbbox((0, 0), icon, font=font_emoji)
+                tw = bbox[2] - bbox[0]
+                th = bbox[3] - bbox[1]
+                if tw > 4:  # emoji actually rendered (width > 0)
+                    draw.text((cx - tw // 2, cy - th // 2 - 70), icon, font=font_emoji, fill="#ffffff")
+                    drew_icon = True
+            except Exception:
+                pass
+
+        label_cy = cy + 60 if drew_icon else cy
+        _draw_text_centered(draw, btn.label, cx, label_cy, font_label)
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
+    img.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
 
 

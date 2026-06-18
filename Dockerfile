@@ -5,6 +5,7 @@ WORKDIR /app
 # System deps for asyncpg + Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc libjpeg-dev zlib1g-dev \
+    fonts-noto fonts-noto-extra \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
