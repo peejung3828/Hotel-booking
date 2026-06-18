@@ -1,4 +1,5 @@
 import io
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from PIL import Image, ImageDraw, ImageFont
@@ -19,6 +20,28 @@ from backend.models.user import AdminUser
 from backend.routers.auth import require_admin
 
 router = APIRouter()
+
+_EMOJI_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "static", "icons", "emoji")
+)
+
+
+def _emoji_to_twemoji_id(emoji_str: str) -> str:
+    cps = [f"{ord(ch):x}" for ch in emoji_str if ord(ch) != 0xFE0F]
+    return "-".join(cps)
+
+
+def _load_emoji_png(emoji_str: str, size: int) -> "Image.Image | None":
+    if not emoji_str:
+        return None
+    tid = _emoji_to_twemoji_id(emoji_str)
+    path = os.path.join(_EMOJI_DIR, f"{tid}.png")
+    try:
+        img = Image.open(path).convert("RGBA")
+        return img.resize((size, size), Image.LANCZOS)
+    except Exception:
+        return None
+
 
 # LINE Rich Menu canvas: 2500 x 843 (standard half-height)
 CANVAS_W = 2500
@@ -131,15 +154,14 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
     cell_w = CANVAS_W // cols
     cell_h = CANVAS_H // rows
 
-    # White background — matches CMS Preview exactly
     img = Image.new("RGB", (CANVAS_W, CANVAS_H), "#ffffff")
     draw = ImageDraw.Draw(img)
 
-    font_label = _load_font(96)
+    font_label = _load_font(90)
 
-    # Color palette matching BUTTON_COLORS
     ICON_COLORS = ["#1a73e8", "#0f9d58", "#f4b400", "#db4437", "#7b1fa2", "#00acc1"]
-    ICON_RADIUS = 130  # colored circle radius (px)
+    ICON_RADIUS = 130
+    EMOJI_SIZE = 180
 
     for i, btn in enumerate(buttons):
         col = i % cols
@@ -150,20 +172,26 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
         y1 = y0 + cell_h
         cx = (x0 + x1) // 2
         cy = (y0 + y1) // 2
-
         color = ICON_COLORS[i % len(ICON_COLORS)]
 
-        # Colored circle as icon (reliable without emoji fonts)
         icon_cy = cy - 110
-        draw.ellipse(
-            [cx - ICON_RADIUS, icon_cy - ICON_RADIUS, cx + ICON_RADIUS, icon_cy + ICON_RADIUS],
-            fill=color,
-        )
+        drew_emoji = False
 
-        # Thai label below the circle
-        _draw_text_centered(draw, btn.label, cx, cy + 80, font_label, color="#555555")
+        emoji_img = _load_emoji_png(btn.icon, EMOJI_SIZE)
+        if emoji_img:
+            ix = cx - EMOJI_SIZE // 2
+            iy = icon_cy - EMOJI_SIZE // 2
+            img.paste(emoji_img, (ix, iy), emoji_img)
+            drew_emoji = True
 
-        # Gray dividers (1px in preview → 3px at 2500px scale)
+        if not drew_emoji:
+            draw.ellipse(
+                [cx - ICON_RADIUS, icon_cy - ICON_RADIUS, cx + ICON_RADIUS, icon_cy + ICON_RADIUS],
+                fill=color,
+            )
+
+        _draw_text_centered(draw, btn.label, cx, cy + 90, font_label, color="#555555")
+
         if col < cols - 1:
             draw.line([x1, y0, x1, y1], fill="#dddddd", width=3)
         if row < rows - 1:
