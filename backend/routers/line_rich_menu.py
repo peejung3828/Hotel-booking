@@ -131,11 +131,15 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
     cell_w = CANVAS_W // cols
     cell_h = CANVAS_H // rows
 
-    img = Image.new("RGB", (CANVAS_W, CANVAS_H), "#1a1a2e")
+    # White background — matches CMS Preview exactly
+    img = Image.new("RGB", (CANVAS_W, CANVAS_H), "#ffffff")
     draw = ImageDraw.Draw(img)
 
     font_label = _load_font(96)
-    font_emoji = _load_font(130, emoji=True)
+
+    # Color palette matching BUTTON_COLORS
+    ICON_COLORS = ["#1a73e8", "#0f9d58", "#f4b400", "#db4437", "#7b1fa2", "#00acc1"]
+    ICON_RADIUS = 130  # colored circle radius (px)
 
     for i, btn in enumerate(buttons):
         col = i % cols
@@ -147,38 +151,26 @@ def _generate_image(buttons: list[ButtonConfig]) -> bytes:
         cx = (x0 + x1) // 2
         cy = (y0 + y1) // 2
 
-        # Background
-        color = BUTTON_COLORS[i % len(BUTTON_COLORS)]
-        draw.rectangle([x0, y0, x1, y1], fill=color)
+        color = ICON_COLORS[i % len(ICON_COLORS)]
 
-        # Lighter overlay strip at top for depth
-        draw.rectangle([x0, y0, x1, y0 + 8], fill="#ffffff30" if color else color)
+        # Colored circle as icon (reliable without emoji fonts)
+        icon_cy = cy - 110
+        draw.ellipse(
+            [cx - ICON_RADIUS, icon_cy - ICON_RADIUS, cx + ICON_RADIUS, icon_cy + ICON_RADIUS],
+            fill=color,
+        )
 
-        # White dividers
+        # Thai label below the circle
+        _draw_text_centered(draw, btn.label, cx, cy + 80, font_label, color="#555555")
+
+        # Gray dividers (1px in preview → 3px at 2500px scale)
         if col < cols - 1:
-            draw.line([x1, y0, x1, y1], fill="#ffffff", width=6)
+            draw.line([x1, y0, x1, y1], fill="#dddddd", width=3)
         if row < rows - 1:
-            draw.line([x0, y1, x1, y1], fill="#ffffff", width=6)
-
-        # Try emoji icon above label; fall back to label-only if emoji won't render
-        icon = btn.icon
-        drew_icon = False
-        if icon and font_emoji is not None:
-            try:
-                bbox = draw.textbbox((0, 0), icon, font=font_emoji)
-                tw = bbox[2] - bbox[0]
-                th = bbox[3] - bbox[1]
-                if tw > 4:  # emoji actually rendered (width > 0)
-                    draw.text((cx - tw // 2, cy - th // 2 - 70), icon, font=font_emoji, fill="#ffffff")
-                    drew_icon = True
-            except Exception:
-                pass
-
-        label_cy = cy + 60 if drew_icon else cy
-        _draw_text_centered(draw, btn.label, cx, label_cy, font_label)
+            draw.line([x0, y1, x1, y1], fill="#dddddd", width=3)
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=92)
+    img.save(buf, format="JPEG", quality=95)
     return buf.getvalue()
 
 
