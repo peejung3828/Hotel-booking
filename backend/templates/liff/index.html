@@ -81,6 +81,14 @@
         <h2 class="text-lg font-bold text-gray-800">เลือกห้องพัก</h2>
         <button onclick="goStep(1)" class="text-blue-600 text-sm">← แก้ไขวันที่</button>
       </div>
+      <!-- Type filter chips -->
+      <div id="typeFilterBar" class="flex gap-2 flex-wrap mb-4 hidden">
+        <button onclick="filterByType(null)"
+          id="typeChip-all"
+          class="type-chip px-3 py-1 rounded-full text-sm font-medium border border-blue-600 bg-blue-600 text-white transition">
+          ทุกประเภท
+        </button>
+      </div>
       <div id="roomsContainer" class="space-y-4"></div>
       <div id="step2Error" class="text-red-600 text-sm mt-2 hidden"></div>
     </div>
@@ -181,6 +189,10 @@
     let selectedRoom = null;
     let currentStep = 1;
     let appliedCoupon = null;
+    let allRooms = [];
+    let activeTypeFilter = null;
+
+    const TYPE_LABELS = { standard: 'Standard', deluxe: 'Deluxe', suite: 'Suite', family: 'Family', superior: 'Superior' };
 
     // Init LIFF
     async function initLiff() {
@@ -266,7 +278,18 @@
           return;
         }
 
-        renderRooms(rooms);
+        allRooms = rooms;
+        buildTypeFilterBar(rooms);
+
+        // Apply ?room_type= filter if set
+        if (window._preselectedType) {
+          const filtered = rooms.filter(r => r.type === window._preselectedType);
+          activeTypeFilter = filtered.length > 0 ? window._preselectedType : null;
+        } else {
+          activeTypeFilter = null;
+        }
+        updateTypeChipUI();
+        renderRooms(activeTypeFilter ? allRooms.filter(r => r.type === activeTypeFilter) : allRooms);
 
         // Auto-select pre-linked room if still available
         if (window._preselectedRoom) {
@@ -285,6 +308,42 @@
       }
       btn.disabled = false;
       btn.textContent = 'ค้นหาห้องว่าง';
+    }
+
+    function buildTypeFilterBar(rooms) {
+      const types = [...new Set(rooms.map(r => r.type))];
+      if (types.length <= 1) return; // no filter needed for single type
+      const bar = document.getElementById('typeFilterBar');
+      bar.classList.remove('hidden');
+      // Remove old type chips (keep "ทุกประเภท")
+      bar.querySelectorAll('.type-chip:not(#typeChip-all)').forEach(c => c.remove());
+      types.forEach(t => {
+        const label = TYPE_LABELS[t] || t;
+        const btn = document.createElement('button');
+        btn.id = `typeChip-${t}`;
+        btn.className = 'type-chip px-3 py-1 rounded-full text-sm font-medium border border-gray-300 text-gray-600 bg-white transition';
+        btn.textContent = label;
+        btn.onclick = () => filterByType(t);
+        bar.appendChild(btn);
+      });
+    }
+
+    function filterByType(type) {
+      activeTypeFilter = type;
+      updateTypeChipUI();
+      renderRooms(type ? allRooms.filter(r => r.type === type) : allRooms);
+    }
+
+    function updateTypeChipUI() {
+      document.querySelectorAll('.type-chip').forEach(chip => {
+        const isActive = chip.id === `typeChip-${activeTypeFilter ?? 'all'}`;
+        chip.classList.toggle('bg-blue-600', isActive);
+        chip.classList.toggle('text-white', isActive);
+        chip.classList.toggle('border-blue-600', isActive);
+        chip.classList.toggle('bg-white', !isActive);
+        chip.classList.toggle('text-gray-600', !isActive);
+        chip.classList.toggle('border-gray-300', !isActive);
+      });
     }
 
     function renderRooms(rooms) {
@@ -502,6 +561,18 @@
         banner.innerHTML = `เลือกห้อง <strong>${room.name}</strong> — กรอกวันที่แล้วกดค้นหาเพื่อยืนยัน`;
         document.getElementById('step1').prepend(banner);
       } catch (e) { /* ignore */ }
+    })();
+
+    // If ?room_type= is in URL, pre-filter step 2 to that type
+    (() => {
+      const roomType = new URLSearchParams(window.location.search).get('room_type');
+      if (!roomType) return;
+      window._preselectedType = roomType;
+      const label = TYPE_LABELS[roomType] || roomType;
+      const banner = document.createElement('div');
+      banner.className = 'bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 text-sm text-blue-800';
+      banner.innerHTML = `กำลังดูห้อง <strong>${label}</strong> — กรอกวันที่แล้วกดค้นหาเพื่อดูห้องว่าง`;
+      document.getElementById('step1').prepend(banner);
     })();
   </script>
 </body>

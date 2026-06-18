@@ -102,7 +102,7 @@ async def handle_text(
             .limit(10)
         )
         rooms = rooms_result.scalars().all()
-        await line_service.reply_room_carousel(reply_token, rooms)
+        await line_service.reply_room_type_carousel(reply_token, rooms)
         return
 
     if text in ("การจอง", "ประวัติการจอง"):
