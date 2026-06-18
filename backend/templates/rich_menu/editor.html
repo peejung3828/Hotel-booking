@@ -84,9 +84,11 @@
   let currentTab = 'customer';
   let currentLayout = 3;
 
+  const LIFF_URL = '{{ liff_url }}';
+
   const defaultButtons = {
     customer: [
-      { label: 'ดูห้อง', icon: '🛏', action: 'uri', value: '' },
+      { label: 'ดูห้อง', icon: '🛏', action: 'uri', value: LIFF_URL },
       { label: 'การจอง', icon: '📅', action: 'message', value: 'การจอง' },
       { label: 'ติดต่อ', icon: '💬', action: 'message', value: 'ติดต่อเรา' },
     ],

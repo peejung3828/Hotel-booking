@@ -278,8 +278,10 @@ async def rich_menu_page(
     request: Request,
     user: AdminUser = Depends(cms_super_admin),
 ):
+    liff_url = f"https://liff.line.me/{settings.LIFF_ID}" if settings.LIFF_ID else ""
     return templates.TemplateResponse(request, "rich_menu/editor.html", {
-        "user": user
+        "user": user,
+        "liff_url": liff_url,
     })
 
 
