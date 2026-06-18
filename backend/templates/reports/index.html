@@ -142,7 +142,7 @@
         <div>
           <div class="text-2xl font-bold text-purple-700" id="statNights">—</div>
           <div class="text-xs text-gray-500">คืนที่ขายได้รวม</div>
-          <div class="text-xs text-gray-400" id="statTotalRooms">— ห้อง × <span id="statDays">—</span> วัน</div>
+          <div class="text-xs text-gray-400"><span id="statTotalRooms">—</span> ห้อง × <span id="statDays">—</span> วัน</div>
         </div>
       </div>
     </div>
@@ -237,8 +237,8 @@
     document.getElementById('statFamilyPct').textContent = d.family_pct + '%';
     document.getElementById('statFamilyCount').textContent = d.family_count + ' รายการ';
     document.getElementById('statNights').textContent = d.nights_sold.toLocaleString();
-    document.getElementById('statTotalRooms').textContent = d.total_rooms + ' ห้อง ×';
-    document.getElementById('statDays').textContent = d.days_in_month + ' วัน';
+    document.getElementById('statTotalRooms').textContent = d.total_rooms;
+    document.getElementById('statDays').textContent = d.days_in_month;
 
     // Smart insights
     document.getElementById('insightsList').innerHTML = d.insights.map(
