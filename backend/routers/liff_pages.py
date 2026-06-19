@@ -11,6 +11,9 @@ _ctx = {
     "liff_id": settings.LIFF_ID or "",
     "omise_public_key": settings.OMISE_PUBLIC_KEY or "",
     "app_url": settings.APP_URL,
+    "bank_name": settings.BANK_NAME or "",
+    "bank_account_name": settings.BANK_ACCOUNT_NAME or "",
+    "bank_account_number": settings.BANK_ACCOUNT_NUMBER or "",
 }
 
 

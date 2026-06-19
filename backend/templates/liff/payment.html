@@ -6,10 +6,12 @@
   <title>ชำระเงิน</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+  {% if omise_public_key %}
+  <script src="https://cdn.omise.co/omise.js"></script>
+  {% endif %}
 </head>
 <body class="bg-gray-50 min-h-screen pb-10">
 
-  <!-- Header -->
   <div class="bg-blue-600 text-white px-4 py-4 flex items-center gap-3 sticky top-0 z-10 shadow">
     <span class="text-2xl">💳</span>
     <div class="font-bold text-lg">ชำระเงิน</div>
@@ -33,14 +35,14 @@
     <!-- Success -->
     <div id="successState" class="hidden text-center py-10 px-4">
       <div class="text-6xl mb-4">✅</div>
-      <div class="text-xl font-bold text-green-700 mb-2">ส่งสลิปสำเร็จ!</div>
-      <div class="text-gray-600 text-sm mb-6">ทีมงานจะตรวจสอบและยืนยันการจองของคุณภายใน 30 นาที</div>
+      <div class="text-xl font-bold text-green-700 mb-2">ชำระเงินสำเร็จ!</div>
+      <div id="successMsg" class="text-gray-600 text-sm mb-6">ทีมงานจะยืนยันการจองของคุณภายใน 30 นาที</div>
       <a id="confirmLink" href="/liff/confirm" class="inline-block bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold">
         ดูสถานะการจอง
       </a>
     </div>
 
-    <!-- Payment form -->
+    <!-- Payment UI -->
     <div id="paymentForm" class="hidden space-y-4">
 
       <!-- Booking summary -->
@@ -61,127 +63,188 @@
         </div>
       </div>
 
-      <!-- Slip upload -->
-      <div class="bg-white rounded-2xl shadow p-5">
-        <div class="text-sm font-semibold text-gray-700 mb-4">📎 อัปโหลดสลิปการโอนเงิน</div>
-        <p class="text-xs text-gray-500 mb-4">โอนเงินตามยอดที่ระบุแล้วส่งสลิปเพื่อยืนยันการจอง</p>
-
-        <label for="slipFile"
-          class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
-          <div id="uploadPlaceholder" class="text-center">
-            <div class="text-4xl mb-2">📎</div>
-            <div class="text-sm text-gray-500">แตะเพื่อเลือกรูปสลิป</div>
-            <div class="text-xs text-gray-400 mt-1">JPEG, PNG (สูงสุด 5MB)</div>
-          </div>
-          <img id="slipPreview" class="hidden w-full h-full object-contain rounded-xl" alt="slip preview"/>
-          <input type="file" id="slipFile" accept="image/jpeg,image/png,image/webp" class="hidden"
-            onchange="previewSlip(this)"/>
-        </label>
-
-        <div id="uploadError" class="text-red-600 text-sm mt-2 hidden"></div>
-
-        <button id="submitBtn" onclick="submitPayment()"
-          class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl transition text-lg disabled:opacity-50">
-          ส่งสลิป
-        </button>
+      <!-- Method selector -->
+      <div class="bg-white rounded-2xl shadow p-4">
+        <div class="text-sm font-semibold text-gray-700 mb-3">เลือกวิธีชำระเงิน</div>
+        <div class="flex gap-2">
+          <button onclick="selectMethod('transfer')" id="tab-transfer"
+            class="method-tab flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 border-blue-600 bg-blue-50 transition text-xs font-medium text-blue-700">
+            <span class="text-xl">🏦</span>โอนเงิน
+          </button>
+          <button onclick="selectMethod('promptpay')" id="tab-promptpay"
+            class="method-tab flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 border-gray-200 bg-white transition text-xs font-medium text-gray-600">
+            <span class="text-xl">📱</span>PromptPay
+          </button>
+          {% if omise_public_key %}
+          <button onclick="selectMethod('card')" id="tab-card"
+            class="method-tab flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 border-gray-200 bg-white transition text-xs font-medium text-gray-600">
+            <span class="text-xl">💳</span>บัตร
+          </button>
+          {% endif %}
+        </div>
       </div>
+
+      <!-- ── BANK TRANSFER ── -->
+      <div id="method-transfer" class="space-y-4">
+        {% if bank_name or bank_account_number %}
+        <div class="bg-white rounded-2xl shadow p-5 space-y-3">
+          <div class="text-sm font-semibold text-gray-700">🏦 ข้อมูลบัญชีธนาคาร</div>
+          {% if bank_name %}
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500">ธนาคาร</span>
+            <span class="font-semibold text-gray-800">{{ bank_name }}</span>
+          </div>
+          {% endif %}
+          {% if bank_account_name %}
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500">ชื่อบัญชี</span>
+            <span class="font-semibold text-gray-800">{{ bank_account_name }}</span>
+          </div>
+          {% endif %}
+          {% if bank_account_number %}
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500">เลขบัญชี</span>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-gray-800 text-base tracking-wide">{{ bank_account_number }}</span>
+              <button onclick="copyText('{{ bank_account_number }}')"
+                class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded-lg transition">
+                คัดลอก
+              </button>
+            </div>
+          </div>
+          {% endif %}
+          <div class="bg-blue-50 rounded-xl p-3 text-sm text-blue-700">
+            💡 กรุณาโอนให้ครบตามยอด แล้วส่งสลิปด้านล่าง
+          </div>
+        </div>
+        {% else %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm text-yellow-700">
+          ⚠️ กรุณาติดต่อที่พักเพื่อรับข้อมูลบัญชีธนาคาร
+        </div>
+        {% endif %}
+
+        <!-- Slip upload -->
+        <div class="bg-white rounded-2xl shadow p-5">
+          <div class="text-sm font-semibold text-gray-700 mb-3">📎 อัปโหลดสลิปการโอนเงิน</div>
+          <label for="slipFile"
+            class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+            <div id="uploadPlaceholder" class="text-center">
+              <div class="text-4xl mb-2">📎</div>
+              <div class="text-sm text-gray-500">แตะเพื่อเลือกรูปสลิป</div>
+              <div class="text-xs text-gray-400 mt-1">JPEG, PNG (สูงสุด 5MB)</div>
+            </div>
+            <img id="slipPreview" class="hidden w-full h-full object-contain rounded-xl" alt="slip preview"/>
+            <input type="file" id="slipFile" accept="image/jpeg,image/png,image/webp" class="hidden"
+              onchange="previewSlip(this)"/>
+          </label>
+          <div id="uploadError" class="text-red-600 text-sm mt-2 hidden"></div>
+          <button id="submitSlipBtn" onclick="submitSlip()"
+            class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl transition text-lg">
+            ส่งสลิป
+          </button>
+        </div>
+      </div>
+
+      <!-- ── PROMPTPAY QR ── -->
+      <div id="method-promptpay" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl shadow p-5">
+          <div class="text-sm font-semibold text-gray-700 mb-2">📱 ชำระผ่าน PromptPay</div>
+          <p class="text-xs text-gray-500 mb-4">สร้าง QR Code แล้วสแกนจ่ายผ่านแอปธนาคาร — ระบบยืนยันอัตโนมัติหลังชำระ</p>
+
+          <!-- QR display -->
+          <div id="qrArea" class="hidden text-center space-y-3">
+            <img id="qrImage" src="" alt="QR Code" class="mx-auto w-56 h-56 object-contain border rounded-2xl p-2"/>
+            <div class="text-sm font-semibold text-gray-700">สแกน QR ด้วยแอปธนาคาร</div>
+            <div id="qrPolling" class="text-sm text-blue-600">⏳ รอการยืนยันการชำระเงิน...</div>
+            <button onclick="cancelQR()"
+              class="text-xs text-gray-400 underline">ยกเลิก / สร้างใหม่</button>
+          </div>
+
+          <button id="qrBtn" onclick="payWithPromptPay()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl transition text-lg">
+            สร้าง QR Code PromptPay
+          </button>
+        </div>
+      </div>
+
+      <!-- ── CREDIT / DEBIT CARD ── -->
+      {% if omise_public_key %}
+      <div id="method-card" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl shadow p-5 space-y-4">
+          <div class="text-sm font-semibold text-gray-700">💳 บัตรเครดิต / เดบิต</div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">หมายเลขบัตร</label>
+            <input id="cardNumber" type="tel" inputmode="numeric" placeholder="0000 0000 0000 0000"
+              maxlength="19"
+              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none tracking-widest"
+              oninput="formatCardNumber(this)"/>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">วันหมดอายุ (MM/YY)</label>
+              <input id="cardExpiry" type="tel" inputmode="numeric" placeholder="MM/YY" maxlength="5"
+                class="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                oninput="formatExpiry(this)"/>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">CVV</label>
+              <input id="cardCvv" type="tel" inputmode="numeric" placeholder="123" maxlength="4"
+                class="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">ชื่อบนบัตร</label>
+            <input id="cardName" type="text" placeholder="ชื่อ นามสกุล (ภาษาอังกฤษ)"
+              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none uppercase"
+              oninput="this.value = this.value.toUpperCase()"/>
+          </div>
+          <div id="cardError" class="text-red-600 text-sm hidden"></div>
+          <button id="cardBtn" onclick="payWithCard()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl transition text-lg">
+            ชำระเงิน <span id="cardBtnAmount"></span>
+          </button>
+          <p class="text-xs text-gray-400 text-center">🔒 ปลอดภัยด้วย Omise — ข้อมูลบัตรไม่ถูกเก็บในระบบ</p>
+        </div>
+      </div>
+      {% endif %}
 
     </div>
   </div>
 
   <script>
-    const APP_URL = "{{ app_url }}";
-    const LIFF_ID = "{{ liff_id }}";
+    const APP_URL    = "{{ app_url }}";
+    const LIFF_ID    = "{{ liff_id }}";
+    const OMISE_PKEY = "{{ omise_public_key }}";
     let booking = null;
-
-    async function payWithLinePay() {
-      if (!booking) return;
-      const btn = event.target.closest('button');
-      btn.disabled = true;
-      btn.textContent = 'กำลังเชื่อมต่อ LINE Pay...';
-
-      try {
-        const res = await fetch(`${APP_URL}/api/payments/linepay/request`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking_ref: booking.booking_ref }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.detail || 'ไม่สามารถเชื่อมต่อ LINE Pay ได้');
-          btn.disabled = false;
-          btn.innerHTML = '&hellip; จ่ายด้วย LINE Pay';
-          return;
-        }
-        // Redirect to LINE Pay payment page
-        window.location.href = data.payment_url;
-      } catch (e) {
-        alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
-        btn.disabled = false;
-      }
-    }
-
-    let promptPayChargeId = null;
     let promptPayPoller = null;
+    let currentMethod = 'transfer';
 
-    async function payWithPromptPay() {
-      if (!booking) return;
-      const btn = document.getElementById('qrBtn');
-      btn.disabled = true;
-      btn.textContent = 'กำลังสร้าง QR...';
+    {% if omise_public_key %}
+    if (typeof Omise !== 'undefined') Omise.setPublicKey(OMISE_PKEY);
+    {% endif %}
 
-      try {
-        const res = await fetch(`${APP_URL}/api/payments/promptpay/request`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking_ref: booking.booking_ref }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.detail || 'ไม่สามารถสร้าง QR ได้');
-          btn.disabled = false;
-          btn.textContent = 'สร้าง QR Code';
-          return;
-        }
-
-        promptPayChargeId = data.charge_id;
-        btn.classList.add('hidden');
-        if (data.qr_url) {
-          document.getElementById('qrImage').src = data.qr_url;
-        }
-        document.getElementById('qrArea').classList.remove('hidden');
-
-        // Poll every 5 seconds for up to 10 minutes
-        let attempts = 0;
-        promptPayPoller = setInterval(async () => {
-          attempts++;
-          if (attempts > 120) {
-            clearInterval(promptPayPoller);
-            document.getElementById('qrPolling').textContent = 'หมดเวลา กรุณาลองใหม่';
-            return;
-          }
-          const statusRes = await fetch(`${APP_URL}/api/payments/promptpay/status/${promptPayChargeId}`);
-          const statusData = await statusRes.json();
-          if (statusData.status === 'successful') {
-            clearInterval(promptPayPoller);
-            document.getElementById('qrPolling').textContent = '✅ ชำระเงินสำเร็จ! กำลังไปหน้ายืนยัน...';
-            document.getElementById('qrPolling').className = 'text-sm text-green-600 font-semibold';
-            setTimeout(() => {
-              window.location.href = `/liff/confirm?ref=${booking.booking_ref}`;
-            }, 1500);
-          }
-        }, 5000);
-      } catch (e) {
-        alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
-        btn.disabled = false;
-        btn.textContent = 'สร้าง QR Code';
-      }
+    // ── Method tabs ──────────────────────────────────────────────────────────
+    function selectMethod(method) {
+      currentMethod = method;
+      ['transfer', 'promptpay', 'card'].forEach(m => {
+        const tab = document.getElementById(`tab-${m}`);
+        const panel = document.getElementById(`method-${m}`);
+        if (!tab || !panel) return;
+        const active = m === method;
+        tab.classList.toggle('border-blue-600', active);
+        tab.classList.toggle('bg-blue-50', active);
+        tab.classList.toggle('text-blue-700', active);
+        tab.classList.toggle('border-gray-200', !active);
+        tab.classList.toggle('bg-white', !active);
+        tab.classList.toggle('text-gray-600', !active);
+        panel.classList.toggle('hidden', !active);
+      });
     }
 
+    // ── Bank transfer ────────────────────────────────────────────────────────
     function copyText(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('คัดลอกแล้ว: ' + text);
-      });
+      navigator.clipboard.writeText(text).then(() => alert('คัดลอกแล้ว: ' + text));
     }
 
     function previewSlip(input) {
@@ -204,43 +267,34 @@
       reader.readAsDataURL(file);
     }
 
-    async function submitPayment() {
+    async function submitSlip() {
       const file = document.getElementById('slipFile').files[0];
       const errEl = document.getElementById('uploadError');
       errEl.classList.add('hidden');
-
       if (!file) {
         errEl.textContent = 'กรุณาเลือกรูปสลิป';
         errEl.classList.remove('hidden');
         return;
       }
-
-      const btn = document.getElementById('submitBtn');
+      const btn = document.getElementById('submitSlipBtn');
       btn.disabled = true;
       btn.textContent = 'กำลังส่ง...';
-
       const formData = new FormData();
       formData.append('booking_ref', booking.booking_ref);
       formData.append('amount', booking.total_price);
       formData.append('file', file);
-
       try {
-        const res = await fetch(`${APP_URL}/api/payments/upload-slip`, {
-          method: 'POST',
-          body: formData,
-        });
+        const res = await fetch(`${APP_URL}/api/payments/upload-slip`, { method: 'POST', body: formData });
         const data = await res.json();
         if (!res.ok) {
-          errEl.textContent = data.detail || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+          errEl.textContent = data.detail || 'เกิดข้อผิดพลาด';
           errEl.classList.remove('hidden');
           btn.disabled = false;
           btn.textContent = 'ส่งสลิป';
           return;
         }
-        document.getElementById('paymentForm').classList.add('hidden');
-        document.getElementById('confirmLink').href = `/liff/confirm?ref=${booking.booking_ref}`;
-        document.getElementById('successState').classList.remove('hidden');
-      } catch (e) {
+        showSuccess('ทีมงานจะตรวจสอบและยืนยันการจองของคุณภายใน 30 นาที');
+      } catch {
         errEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
         errEl.classList.remove('hidden');
         btn.disabled = false;
@@ -248,41 +302,167 @@
       }
     }
 
-    async function loadBooking() {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
-      if (!ref) {
-        showError('ไม่พบรหัสการจอง');
-        return;
+    // ── PromptPay QR ─────────────────────────────────────────────────────────
+    async function payWithPromptPay() {
+      const btn = document.getElementById('qrBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังสร้าง QR...';
+      try {
+        const res = await fetch(`${APP_URL}/api/payments/promptpay/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_ref: booking.booking_ref }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || 'ไม่สามารถสร้าง QR ได้');
+          btn.disabled = false;
+          btn.textContent = 'สร้าง QR Code PromptPay';
+          return;
+        }
+        btn.classList.add('hidden');
+        if (data.qr_url) document.getElementById('qrImage').src = data.qr_url;
+        document.getElementById('qrArea').classList.remove('hidden');
+        startQRPolling(data.charge_id);
+      } catch {
+        alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+        btn.disabled = false;
+        btn.textContent = 'สร้าง QR Code PromptPay';
       }
+    }
 
+    function startQRPolling(chargeId) {
+      let attempts = 0;
+      promptPayPoller = setInterval(async () => {
+        attempts++;
+        if (attempts > 120) {
+          clearInterval(promptPayPoller);
+          document.getElementById('qrPolling').textContent = '⏰ หมดเวลา กดสร้าง QR ใหม่';
+          document.getElementById('qrPolling').className = 'text-sm text-red-500';
+          return;
+        }
+        const r = await fetch(`${APP_URL}/api/payments/promptpay/status/${chargeId}`);
+        const d = await r.json();
+        if (d.status === 'successful') {
+          clearInterval(promptPayPoller);
+          document.getElementById('qrPolling').textContent = '✅ ชำระเงินสำเร็จ!';
+          document.getElementById('qrPolling').className = 'text-sm text-green-600 font-semibold';
+          setTimeout(() => showSuccess('ยืนยันการชำระเงินอัตโนมัติแล้ว'), 1000);
+        }
+      }, 5000);
+    }
+
+    function cancelQR() {
+      clearInterval(promptPayPoller);
+      document.getElementById('qrArea').classList.add('hidden');
+      const btn = document.getElementById('qrBtn');
+      btn.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'สร้าง QR Code PromptPay';
+      document.getElementById('qrPolling').textContent = '⏳ รอการยืนยันการชำระเงิน...';
+      document.getElementById('qrPolling').className = 'text-sm text-blue-600';
+    }
+
+    // ── Credit / Debit card ──────────────────────────────────────────────────
+    function formatCardNumber(input) {
+      let v = input.value.replace(/\D/g, '').substring(0, 16);
+      input.value = v.replace(/(.{4})/g, '$1 ').trim();
+    }
+
+    function formatExpiry(input) {
+      let v = input.value.replace(/\D/g, '').substring(0, 4);
+      if (v.length >= 3) v = v.substring(0, 2) + '/' + v.substring(2);
+      input.value = v;
+    }
+
+    async function payWithCard() {
+      const number  = document.getElementById('cardNumber').value.replace(/\s/g, '');
+      const expiry  = document.getElementById('cardExpiry').value;
+      const cvv     = document.getElementById('cardCvv').value;
+      const name    = document.getElementById('cardName').value.trim();
+      const errEl   = document.getElementById('cardError');
+      errEl.classList.add('hidden');
+
+      if (!number || number.length < 13) { errEl.textContent = 'กรอกหมายเลขบัตรให้ครบ'; errEl.classList.remove('hidden'); return; }
+      if (!expiry || expiry.length < 5) { errEl.textContent = 'กรอกวันหมดอายุ'; errEl.classList.remove('hidden'); return; }
+      if (!cvv || cvv.length < 3) { errEl.textContent = 'กรอก CVV'; errEl.classList.remove('hidden'); return; }
+      if (!name) { errEl.textContent = 'กรอกชื่อบนบัตร'; errEl.classList.remove('hidden'); return; }
+
+      const [expMonth, expYear] = expiry.split('/');
+      const btn = document.getElementById('cardBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังประมวลผล...';
+
+      Omise.createToken('card', {
+        name, number,
+        expiration_month: parseInt(expMonth),
+        expiration_year:  2000 + parseInt(expYear),
+        security_code:    cvv,
+      }, async (statusCode, response) => {
+        if (response.object === 'error') {
+          errEl.textContent = response.message || 'ข้อมูลบัตรไม่ถูกต้อง';
+          errEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = `ชำระเงิน ${document.getElementById('pTotal').textContent}`;
+          return;
+        }
+        try {
+          const res = await fetch(`${APP_URL}/api/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              booking_id: booking.id,
+              method: 'credit_card',
+              amount: booking.total_price,
+              omise_token: response.id,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            errEl.textContent = data.detail || 'การชำระเงินล้มเหลว';
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = `ชำระเงิน ${document.getElementById('pTotal').textContent}`;
+            return;
+          }
+          showSuccess('ชำระเงินด้วยบัตรสำเร็จแล้ว');
+        } catch {
+          errEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+          errEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = `ชำระเงิน ${document.getElementById('pTotal').textContent}`;
+        }
+      });
+    }
+
+    // ── Shared ───────────────────────────────────────────────────────────────
+    function showSuccess(msg) {
+      document.getElementById('paymentForm').classList.add('hidden');
+      document.getElementById('successMsg').textContent = msg;
+      document.getElementById('confirmLink').href = `/liff/confirm?ref=${booking.booking_ref}`;
+      document.getElementById('successState').classList.remove('hidden');
+    }
+
+    async function loadBooking() {
+      const ref = new URLSearchParams(window.location.search).get('ref');
+      if (!ref) { showError('ไม่พบรหัสการจอง'); return; }
       try {
         const res = await fetch(`${APP_URL}/api/bookings/${ref}`);
-        if (!res.ok) {
-          showError('ไม่พบการจองนี้');
-          return;
-        }
+        if (!res.ok) { showError('ไม่พบการจองนี้'); return; }
         booking = await res.json();
-
-        if (booking.status === 'cancelled') {
-          showError('การจองนี้ถูกยกเลิกแล้ว');
-          return;
-        }
+        if (booking.status === 'cancelled') { showError('การจองนี้ถูกยกเลิกแล้ว'); return; }
         if (['confirmed', 'checked_in', 'checked_out'].includes(booking.status)) {
-          showError('การจองนี้ชำระเงินแล้ว');
-          return;
+          showError('การจองนี้ชำระเงินแล้ว'); return;
         }
-
+        const totalText = `฿${Number(booking.total_price).toLocaleString()}`;
         document.getElementById('pRef').textContent = booking.booking_ref;
         document.getElementById('pDates').textContent = `${booking.check_in} → ${booking.check_out}`;
-        const totalText = `฿${Number(booking.total_price).toLocaleString()}`;
         document.getElementById('pTotal').textContent = totalText;
-
+        const cardAmtEl = document.getElementById('cardBtnAmount');
+        if (cardAmtEl) cardAmtEl.textContent = totalText;
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('paymentForm').classList.remove('hidden');
-      } catch (e) {
-        showError('เกิดข้อผิดพลาด กรุณาลองใหม่');
-      }
+      } catch { showError('เกิดข้อผิดพลาด กรุณาลองใหม่'); }
     }
 
     function showError(msg) {
@@ -291,16 +471,7 @@
       document.getElementById('errorState').classList.remove('hidden');
     }
 
-    async function initLiff() {
-      if (!LIFF_ID) return;
-      try {
-        await liff.init({ liffId: LIFF_ID });
-      } catch (e) {
-        console.warn('LIFF init failed:', e.message);
-      }
-    }
-
-    initLiff();
+    if (LIFF_ID) liff.init({ liffId: LIFF_ID }).catch(() => {});
     loadBooking();
   </script>
 </body>

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     MAX_IMAGE_WIDTH: int = 1200
     MAX_IMAGE_HEIGHT: int = 800
 
+    # Bank transfer info (shown on payment page)
+    BANK_NAME: str = ""
+    BANK_ACCOUNT_NAME: str = ""
+    BANK_ACCOUNT_NUMBER: str = ""
+
     # Omise payment
     OMISE_PUBLIC_KEY: str = ""
     OMISE_SECRET_KEY: str = ""
